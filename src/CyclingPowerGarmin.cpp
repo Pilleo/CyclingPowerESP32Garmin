@@ -7,6 +7,7 @@
 #include <Arduino.h>
 #include <BLECyclingPowerService.h>
 #include <Power.h>
+#include "SystemWrapper.h"
 
 unsigned long lastDataSentTimestamp = 0;
 uint16_t currentPower = 0;
@@ -16,7 +17,8 @@ static constexpr uint8_t limitPin = 18;
 static constexpr uint8_t forwardPin = 19;
 static constexpr uint8_t positionPin = 23;
 ResistanceLevel lvl(backwordsPin, limitPin, positionPin, forwardPin);
-Cadence freq(15);
+ArduinoSystemWrapper sys;
+Cadence freq(15, sys);
 const char *ssid = "error";
 const char *password = "tpdavid19";
 

@@ -1,12 +1,12 @@
 #ifndef CADENCE_H
 #define CADENCE_H
 
-#include <Arduino.h>
+#include "SystemWrapper.h"
 
 class Cadence
 {
 public:
-    explicit Cadence(uint8_t pinn);
+    explicit Cadence(uint8_t pinn, ISystemWrapper& sys);
 
     int16_t cadence();
 
@@ -17,6 +17,7 @@ public:
     uint16_t getGattLastCrankRevolutionTimestamp();
 
 private:
+    ISystemWrapper& sys;
     const uint8_t pin;
     int16_t rpm = 0;
     int16_t debouncingCounter = 0;
