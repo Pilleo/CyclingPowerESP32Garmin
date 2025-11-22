@@ -1,13 +1,6 @@
 #include <Arduino.h>
 #include <Cadence.h>
 
-bool oldState;
-unsigned long elapsedTimestamp = 0;
-unsigned long elapsedSampleTimeStamp = 0;
-uint8_t rev = 0;
-uint32_t totalRev = 0;
-static uint16_t gattLastCrankRevolutionTimestamp = 0;
-
 uint16_t Cadence::getGattLastCrankRevolutionTimestamp()
 {
     return (gattLastCrankRevolutionTimestamp);
@@ -26,6 +19,12 @@ uint32_t Cadence::lastTimestamp()
 Cadence::Cadence(const uint8_t pinn) : pin(pinn)
 {
     pinMode(pin, INPUT_PULLUP); // set pin to input
+    oldState = digitalRead(pin);
+    elapsedTimestamp = 0;
+    elapsedSampleTimeStamp = 0;
+    rev = 0;
+    totalRev = 0;
+    gattLastCrankRevolutionTimestamp = 0;
 }
 
 unsigned long calculateRpmFromRevolutions(const uint8_t revolutions, const unsigned long revolutionsTime)

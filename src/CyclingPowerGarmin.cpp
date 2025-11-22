@@ -82,7 +82,7 @@ void loop()
 
     if (cad >= 0)
     {
-      BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(currentPower);
+      BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(currentPower, freq);
 
       lastDataSentTimestamp = ms;
       Serial.println(cad);

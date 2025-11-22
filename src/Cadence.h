@@ -1,3 +1,6 @@
+#ifndef CADENCE_H
+#define CADENCE_H
+
 #include <Arduino.h>
 
 class Cadence
@@ -7,15 +10,23 @@ public:
 
     int16_t cadence();
 
-    static uint32_t lastTimestamp();
+    uint32_t lastTimestamp();
 
-    static uint32_t totalRevs();
+    uint32_t totalRevs();
 
-    static uint16_t getGattLastCrankRevolutionTimestamp();
+    uint16_t getGattLastCrankRevolutionTimestamp();
 
 private:
     const uint8_t pin;
     int16_t rpm = 0;
     int16_t debouncingCounter = 0;
     uint32_t lastIntervalTime = 0;
+    bool oldState;
+    unsigned long elapsedTimestamp = 0;
+    unsigned long elapsedSampleTimeStamp = 0;
+    uint8_t rev = 0;
+    uint32_t totalRev = 0;
+    uint16_t gattLastCrankRevolutionTimestamp = 0;
 };
+
+#endif //CADENCE_H

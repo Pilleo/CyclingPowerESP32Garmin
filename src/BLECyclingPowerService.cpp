@@ -191,7 +191,7 @@ int random(int min, int max) // range : [min, max]
   return min + rand() % ((max + 1) - min);
 }
 
-void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(uint16_t currentPower)
+void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(uint16_t currentPower, Cadence &cadence)
 
 {
 
@@ -227,13 +227,13 @@ void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(uint16_t curren
 
     CPSMeasurement.power = currentPower;
 
-    CPSMeasurement.wheel_revs = (Cadence::totalRevs() * 31);
+    CPSMeasurement.wheel_revs = (cadence.totalRevs() * 31);
 
-    CPSMeasurement.wheel_rev_timestamp = (Cadence::getGattLastCrankRevolutionTimestamp() * 2) % 65536;
+    CPSMeasurement.wheel_rev_timestamp = (cadence.getGattLastCrankRevolutionTimestamp() * 2) % 65536;
 
-    CPSMeasurement.crank_revs = Cadence::totalRevs();
+    CPSMeasurement.crank_revs = cadence.totalRevs();
 
-    CPSMeasurement.crank_rev_timestamp = Cadence::getGattLastCrankRevolutionTimestamp();
+    CPSMeasurement.crank_rev_timestamp = cadence.getGattLastCrankRevolutionTimestamp();
 
     // Serial.println(freq.getGattLastCrankRevolutionTimestamp());
 
@@ -245,6 +245,7 @@ void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(uint16_t curren
 
     pCharacteristicBatteryLevel->notify();
   }
+
 
   // disconnecting
 
