@@ -1,15 +1,5 @@
 #include <Arduino.h>
-#include <ResistanceLevel.h>
-
-bool oldStatee;
-unsigned long elapsedTimee = 0;
-unsigned long elapsedSampleTimee = 0;
-
-uint8_t currentLevel = 1;
-uint32_t elapsedSampleTimeForLevel = 0;
-bool prevDirection = true;
-
-uint16_t positionChangeCounter, prevPositionChangeCounter = 0;
+#include "ResistanceLevel.h"
 
 ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limittPin, const uint8_t positionPin,
                                  const uint8_t forwardsPin) : backwardsPin(backwardsPin), limittPin(limittPin),
@@ -18,14 +8,18 @@ ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limit
     pinMode(INPUT_PULLUP, forwardsPin);
     pinMode(INPUT_PULLUP, positionPin);
     pinMode(INPUT_PULLUP, limittPin);
-    oldStatee = digitalRead(positionPin);
+    oldState = digitalRead(positionPin);
+    currentLevel = 1;
+    elapsedSampleTimeForLevel = 0;
+    prevDirection = true;
+    positionChangeCounter = 0;
 }
 
-bool wasInPositiveDirection() {
+bool ResistanceLevel::wasInPositiveDirection() const {
     return prevDirection;
 }
 
-void ResistanceLevel::isFirstLevel(bool forward) const {
+void ResistanceLevel::isFirstLevel(bool forward) {
     const bool limitState = digitalRead(limittPin);
 
     if (!forward && limitState) {
@@ -34,15 +28,15 @@ void ResistanceLevel::isFirstLevel(bool forward) const {
     }
 }
 
-bool isConsistentMovement(unsigned long sampleTime) {
+bool ResistanceLevel::isConsistentMovement(unsigned long sampleTime) {
     return sampleTime < 50;
 }
 
-bool isMovementAfterLongPause(unsigned long sampleTime) {
+bool ResistanceLevel::isMovementAfterLongPause(unsigned long sampleTime) {
     return sampleTime > 1700;
 }
 
-uint8_t ResistanceLevel::level() const {
+uint8_t ResistanceLevel::level() {
     const bool preBack = digitalRead(backwardsPin);
     const bool preForward = digitalRead(forwardsPin);
     const bool positionState = digitalRead(positionPin);
@@ -54,39 +48,20 @@ uint8_t ResistanceLevel::level() const {
     const unsigned long mls = millis();
     const unsigned long sampleTime = mls - elapsedSampleTimeForLevel;
 
-    if (positionState != oldStatee && sampleTime > 8) {
-        oldStatee = positionState;
+    if (positionState != oldState && sampleTime > 8) {
+        oldState = positionState;
         elapsedSampleTimeForLevel = mls;
-        prevPositionChangeCounter = positionChangeCounter;
 
         if (forward && ((isConsistentMovement(sampleTime) && wasInPositiveDirection()) ||
                         isMovementAfterLongPause(sampleTime))) {
             positionChangeCounter++;
         } else if (positionChangeCounter > 0 && back && (
                        (isMovementAfterLongPause(sampleTime)) || (
-                           isConsistentMovement(sampleTime) && !wasInPositiveDirection()))) //
+                           isConsistentMovement(sampleTime) && !wasInPositiveDirection())))
         {
             positionChangeCounter--;
         }
         prevDirection = forward;
-
-        // Serial.print("prevPositionChangeCounter ");
-        //   Serial.println(prevPositionChangeCounter);
-
-        //  Serial.print("positionChangeCounter ");
-        // Serial.println(positionChangeCounter);
-
-        // Serial.print("sampleTime ");
-        // Serial.println(sampleTime);
-
-        // if (forward)
-        // {
-        //     Serial.println("forward");
-        // }
-        // if (back)
-        // {
-        //     Serial.println("back");
-        // }
 
         if (positionChangeCounter < 30) {
             currentLevel = 1;
