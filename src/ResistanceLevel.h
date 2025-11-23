@@ -1,11 +1,14 @@
+#include "SystemWrapper.h"
+
 class ResistanceLevel
 {
 public:
-    explicit ResistanceLevel(uint8_t backwardsPin, uint8_t limitPin, uint8_t positionPin, uint8_t forwardsPin);
+    explicit ResistanceLevel(uint8_t backwardsPin, uint8_t limitPin, uint8_t positionPin, uint8_t forwardsPin, ISystemWrapper& sys);
 
     uint8_t level();
 
 private:
+    ISystemWrapper& sys;
     const uint8_t limittPin;
     const uint8_t backwardsPin;
     const uint8_t positionPin;

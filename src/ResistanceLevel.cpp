@@ -1,14 +1,13 @@
-#include <Arduino.h>
 #include "ResistanceLevel.h"
 
 ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limittPin, const uint8_t positionPin,
-                                 const uint8_t forwardsPin) : backwardsPin(backwardsPin), limittPin(limittPin),
-                                                              positionPin(positionPin), forwardsPin(forwardsPin) {
-    pinMode(INPUT_PULLUP, backwardsPin);
-    pinMode(INPUT_PULLUP, forwardsPin);
-    pinMode(INPUT_PULLUP, positionPin);
-    pinMode(INPUT_PULLUP, limittPin);
-    oldState = digitalRead(positionPin);
+                                 const uint8_t forwardsPin, ISystemWrapper& sys) : backwardsPin(backwardsPin), limittPin(limittPin),
+                                                              positionPin(positionPin), forwardsPin(forwardsPin), sys(sys) {
+    // pinMode(INPUT_PULLUP, backwardsPin); // This should be handled by the system wrapper
+    // pinMode(INPUT_PULLUP, forwardsPin);
+    // pinMode(INPUT_PULLUP, positionPin);
+    // pinMode(INPUT_PULLUP, limittPin);
+    oldState = sys.digitalRead(positionPin);
     currentLevel = 1;
     elapsedSampleTimeForLevel = 0;
     prevDirection = true;
@@ -20,7 +19,7 @@ bool ResistanceLevel::wasInPositiveDirection() const {
 }
 
 void ResistanceLevel::isFirstLevel(bool forward) {
-    const bool limitState = digitalRead(limittPin);
+    const bool limitState = sys.digitalRead(limittPin);
 
     if (!forward && limitState) {
         positionChangeCounter = 0;
@@ -37,15 +36,15 @@ bool ResistanceLevel::isMovementAfterLongPause(unsigned long sampleTime) {
 }
 
 uint8_t ResistanceLevel::level() {
-    const bool preBack = digitalRead(backwardsPin);
-    const bool preForward = digitalRead(forwardsPin);
-    const bool positionState = digitalRead(positionPin);
+    const bool preBack = sys.digitalRead(backwardsPin);
+    const bool preForward = sys.digitalRead(forwardsPin);
+    const bool positionState = sys.digitalRead(positionPin);
 
     const bool back = preBack && preForward == false;
     const bool forward = preForward && preBack == false;
     isFirstLevel(forward);
 
-    const unsigned long mls = millis();
+    const unsigned long mls = sys.millis();
     const unsigned long sampleTime = mls - elapsedSampleTimeForLevel;
 
     if (positionState != oldState && sampleTime > 8) {
