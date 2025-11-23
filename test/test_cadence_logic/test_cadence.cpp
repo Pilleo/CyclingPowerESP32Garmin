@@ -330,21 +330,56 @@ void test_cadence_debouncing() {
 
     TEST_MESSAGE("Checking total revolutions after debouncing simulation");
     // Only the first pulse should have counted.
-    TEST_ASSERT_EQUAL(1, cadenceInstance->totalRevs());
-}
-
-int main() { // Renamed setup() to main() and changed return type to int
-    UNITY_BEGIN();
-
-    // Run tests
-    RUN_TEST(test_cadence_initialization);
-    RUN_TEST(test_cadence_steady_60rpm);
-    RUN_TEST(test_cadence_steady_10rpm);
-    RUN_TEST(test_cadence_steady_120rpm);
-    RUN_TEST(test_cadence_sudden_stop);
-    RUN_TEST(test_cadence_very_long_stop);
-    RUN_TEST(test_cadence_inconsistent_pulses);
-    RUN_TEST(test_cadence_debouncing);
-
-    return UNITY_END(); // Return test result
-}
+    
+        TEST_ASSERT_EQUAL(1, cadenceInstance->totalRevs());
+    }
+    
+    void test_cadence_total_revs() {
+        // Simulate exactly 100 pulses and verify totalRevs() increments correctly.
+        const unsigned long NUM_PULSES = 100;
+        const unsigned long REVOLUTION_INTERVAL_MS = 1000; // 60 RPM for simplicity
+    
+        mockSys.setPinState(true);
+        mockSys.setMillis(0);
+        cadenceInstance->cadence(); // Initialize
+    
+        TEST_MESSAGE("Simulating 100 pulses and checking total revolutions.");
+    
+        for (unsigned long i = 0; i < NUM_PULSES; ++i) {
+            // Advance time for each pulse, ensuring it's outside the debounce threshold
+            unsigned long currentPulseTime = (i * REVOLUTION_INTERVAL_MS) + REVOLUTION_INTERVAL_MS;
+            
+            mockSys.setMillis(currentPulseTime - 50); // Pin HIGH before LOW
+            mockSys.setPinState(true);
+            cadenceInstance->cadence();
+    
+            mockSys.setMillis(currentPulseTime); // Pin LOW (trigger)
+            mockSys.setPinState(false);
+            cadenceInstance->cadence();
+    
+            mockSys.setMillis(currentPulseTime + 10); // Pin HIGH again
+            mockSys.setPinState(true);
+            cadenceInstance->cadence();
+        }
+    
+        TEST_MESSAGE("Checking final total revolutions.");
+        TEST_ASSERT_EQUAL(NUM_PULSES, cadenceInstance->totalRevs());
+    }
+    
+    int main() { // Renamed setup() to main() and changed return type to int
+        UNITY_BEGIN();
+    
+        // Run tests
+        RUN_TEST(test_cadence_initialization);
+        RUN_TEST(test_cadence_steady_60rpm);
+        RUN_TEST(test_cadence_steady_10rpm);
+        RUN_TEST(test_cadence_steady_120rpm);
+        RUN_TEST(test_cadence_sudden_stop);
+        RUN_TEST(test_cadence_very_long_stop);
+        RUN_TEST(test_cadence_inconsistent_pulses);
+        RUN_TEST(test_cadence_debouncing);
+        RUN_TEST(test_cadence_total_revs);
+    
+        return UNITY_END(); // Return test result
+    }
+    
