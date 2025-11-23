@@ -1,7 +1,11 @@
 #ifndef SYSTEMWRAPPER_H
 #define SYSTEMWRAPPER_H
 
+#include <cstdint>
+
+#ifndef NATIVE_TEST
 #include <Arduino.h>
+#endif
 
 class ISystemWrapper {
 public:
@@ -9,6 +13,7 @@ public:
     virtual int digitalRead(uint8_t pin) = 0;
 };
 
+#ifndef NATIVE_TEST
 class ArduinoSystemWrapper : public ISystemWrapper {
 public:
     unsigned long millis() override {
@@ -19,5 +24,6 @@ public:
         return ::digitalRead(pin);
     }
 };
+#endif
 
 #endif //SYSTEMWRAPPER_H

@@ -4,7 +4,10 @@
 
 #ifndef BLEPOWERSERVICE_H
 #define BLEPOWERSERVICE_H
+
+#ifndef NATIVE_TEST
 #include <Arduino.h>
+#endif
 #include "Cadence.h"
 
 

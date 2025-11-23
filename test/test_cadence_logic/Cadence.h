@@ -1,7 +1,7 @@
 #ifndef CADENCE_H
 #define CADENCE_H
 
-#include <cstdint>
+#include <cstdint> // For int16_t, uint32_t, uint16_t, uint8_t
 #include "SystemWrapper.h"
 
 class Cadence
