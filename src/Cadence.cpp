@@ -26,16 +26,16 @@ Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) : pin(pinn), sys(sys)
     gattLastCrankRevolutionTimestamp = 0;
 }
 
-unsigned long calculateRpmFromRevolutions(const uint8_t revolutions, const unsigned long revolutionsTime)
+float calculateRpmFromRevolutions(const uint8_t revolutions, const unsigned long revolutionsTime)
 {
     if (revolutionsTime == 0) {
-        return 0;
+        return 0.0f;
     }
-    const unsigned long instantaneousRpm = 60000 / (revolutionsTime / revolutions);
+    const float instantaneousRpm = 60000.0f / (static_cast<float>(revolutionsTime) / static_cast<float>(revolutions));
     return instantaneousRpm;
 }
 
-auto Cadence::cadence() -> int16_t
+float Cadence::cadence()
 {
     const unsigned long mls = sys.millis();
     const unsigned long sampleTime = mls - elapsedSampleTimeStamp;
@@ -61,10 +61,10 @@ auto Cadence::cadence() -> int16_t
         {
             if (intervalTime > 5000)
             {
-                rpm = 0;
+                rpm = 0.0f;
                 if (intervalTime > 60000 * 15)
                 {
-                    rpm = -1;
+                    rpm = -1.0f;
                 }
                 return rpm;
             }

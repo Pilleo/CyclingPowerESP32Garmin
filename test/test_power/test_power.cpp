@@ -4,9 +4,9 @@
 // Test for Low Cadence Cutoff
 void test_power_low_cadence_cutoff() {
     uint8_t cadence = 9;
-    uint8_t level = 5;
+    uint8_t resistanceLevel = 5; // Declared here
     uint16_t expectedPower = 0;
-    uint16_t actualPower = Power::power(level, cadence);
+    uint16_t actualPower = Power::power(resistanceLevel, cadence);
     TEST_ASSERT_EQUAL(expectedPower, actualPower);
 }
 
@@ -91,8 +91,8 @@ void test_power_initialization() {
     // There is no specific initialization for Power class, it's all static.
     // This test ensures the basic call works without crashing and returns a non-negative value for valid inputs.
     uint8_t cadence = 20;
-    uint8_t level = 1;
-    uint16_t actualPower = Power::power(level, cadence);
+    uint8_t resistanceLevel = 1; // Declared here
+    uint16_t actualPower = Power::power(resistanceLevel, cadence);
     TEST_ASSERT_TRUE(actualPower >= 0);
 }
 

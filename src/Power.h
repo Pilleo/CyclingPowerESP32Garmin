@@ -1,23 +1,24 @@
 
 class Power {
 public:
-    static   uint16_t power(const uint8_t resistanceLevel, const uint8_t cadence) {
+    static   uint16_t power(const uint8_t resistanceLevel, const float cadence) {
         uint16_t power;
 
         int cadencePointerForForPower;
+        uint8_t int_cadence = static_cast<uint8_t>(cadence); // Use integer part of cadence for lookup
 
-        if (cadence <= 20 && cadence > 0) {
+        if (int_cadence <= 20 && int_cadence > 0) {
             cadencePointerForForPower = 0;
-        } else if (cadence >= 100) {
+        } else if (int_cadence >= 100) {
             cadencePointerForForPower = 80;
         } else {
-            cadencePointerForForPower = static_cast<int>(cadence) - 20;
+            cadencePointerForForPower = static_cast<int>(int_cadence) - 20;
         }
 
-        if (cadence < 10) {
+        if (int_cadence < 10) {
             power = 0;
-        } else if (cadence>100) {
-            power = powerFromCadenceByLevel[cadencePointerForForPower][resistanceLevel - 1] + (cadence-100)*2;
+        } else if (int_cadence > 100) {
+            power = powerFromCadenceByLevel[cadencePointerForForPower][resistanceLevel - 1] + (static_cast<int>(int_cadence)-100)*2;
         }
         else {
             power = powerFromCadenceByLevel[cadencePointerForForPower][resistanceLevel - 1];
@@ -25,6 +26,7 @@ public:
 
         return power;
     };
+
 
 private:
     static const  uint16_t powerFromCadenceByLevel[81][16];

@@ -22,7 +22,7 @@ void tearDown(void) {
 }
 
 void test_cadence_initialization() {
-    TEST_ASSERT_EQUAL(0, cadenceInstance->cadence());
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, cadenceInstance->cadence());
     TEST_ASSERT_EQUAL(0, cadenceInstance->getGattLastCrankRevolutionTimestamp());
     TEST_ASSERT_EQUAL(0, cadenceInstance->lastTimestamp());
     TEST_ASSERT_EQUAL(0, cadenceInstance->totalRevs());
@@ -86,7 +86,7 @@ void test_cadence_steady_60rpm() {
     // So, check the value at a time slightly after that.
 
     TEST_MESSAGE("Checking RPM after simulation");
-    TEST_ASSERT_EQUAL(60, cadenceInstance->cadence());
+    TEST_ASSERT_EQUAL_FLOAT(60.0f, cadenceInstance->cadence());
 }
 
 void test_cadence_steady_10rpm() {
@@ -114,7 +114,7 @@ void test_cadence_steady_10rpm() {
     cadenceInstance->cadence();
 
     TEST_MESSAGE("Checking RPM after 10 RPM simulation");
-    TEST_ASSERT_EQUAL(10, cadenceInstance->cadence());
+    TEST_ASSERT_EQUAL_FLOAT(10.0f, cadenceInstance->cadence());
 }
 
 void test_cadence_steady_120rpm() {
@@ -142,7 +142,7 @@ void test_cadence_steady_120rpm() {
     cadenceInstance->cadence();
 
     TEST_MESSAGE("Checking RPM after 120 RPM simulation");
-    TEST_ASSERT_EQUAL(120, cadenceInstance->cadence());
+    TEST_ASSERT_EQUAL_FLOAT(120.0f, cadenceInstance->cadence());
 }
 
 void test_cadence_sudden_stop() {
@@ -169,7 +169,7 @@ void test_cadence_sudden_stop() {
 
     mockSys.setMillis(ACTIVE_SIMULATION_DURATION_MS + REVOLUTION_INTERVAL_MS + 100);
     cadenceInstance->cadence(); // Ensure last interval is processed
-    TEST_ASSERT_EQUAL(60, cadenceInstance->cadence()); // Should be 60 RPM initially
+    TEST_ASSERT_EQUAL_FLOAT(60.0f, cadenceInstance->cadence()); // Should be 60 RPM initially
 
     TEST_MESSAGE("Stopping pulses and waiting for RPM to drop to 0.");
 
@@ -184,7 +184,7 @@ void test_cadence_sudden_stop() {
     }
 
     // After stop duration, RPM should be 0
-    TEST_ASSERT_EQUAL(0, cadenceInstance->cadence());
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, cadenceInstance->cadence());
 }
 
 void test_cadence_very_long_stop() {
@@ -211,7 +211,7 @@ void test_cadence_very_long_stop() {
 
     mockSys.setMillis(ACTIVE_SIMULATION_DURATION_MS + REVOLUTION_INTERVAL_MS + 100);
     cadenceInstance->cadence(); // Ensure last interval is processed
-    TEST_ASSERT_EQUAL(60, cadenceInstance->cadence()); // Should be 60 RPM initially
+    TEST_ASSERT_EQUAL_FLOAT(60.0f, cadenceInstance->cadence()); // Should be 60 RPM initially
 
     TEST_MESSAGE("Stopping pulses and waiting for RPM to drop to -1 after a very long stop.");
 
@@ -226,7 +226,7 @@ void test_cadence_very_long_stop() {
     }
 
     // After very long stop duration, RPM should be -1
-    TEST_ASSERT_EQUAL(-1, cadenceInstance->cadence());
+    TEST_ASSERT_EQUAL_FLOAT(-1.0f, cadenceInstance->cadence());
 }
 
 void test_cadence_inconsistent_pulses() {
@@ -278,108 +278,308 @@ void test_cadence_inconsistent_pulses() {
     mockSys.setMillis(current_time + BASE_REVOLUTION_INTERVAL_MS + 100); // Allow some time for final calculation
     cadenceInstance->cadence();
 
-    int16_t actual_rpm = cadenceInstance->cadence();
-    TEST_MESSAGE("Checking RPM after inconsistent pulses simulation");
-    TEST_ASSERT_TRUE(actual_rpm >= (60 - 10) && actual_rpm <= (60 + 10)); // Allow a larger tolerance for average RPM with jitter
-}
+        float actual_rpm = cadenceInstance->cadence();
 
-void test_cadence_debouncing() {
-    // Simulate pulses arriving faster than the 330ms debouncing threshold
-    // Expect only one revolution to be counted within the short interval.
-    const unsigned long DEBOUNCE_THRESHOLD_MS = 330;
-    const unsigned long SHORT_INTERVAL_MS = 100; // Shorter than debounce threshold
+        TEST_MESSAGE("Checking RPM after inconsistent pulses simulation");
 
-    mockSys.setPinState(true);
-    mockSys.setMillis(0);
-    mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 10); // Ensure initial sampleTime > 330ms for the first pulse
-    cadenceInstance->cadence(); // Initialize
+        TEST_ASSERT_TRUE(actual_rpm >= (60.0f - 10.0f) && actual_rpm <= (60.0f + 10.0f)); // Allow a larger tolerance for average RPM with jitter
 
-    // Simulate first pulse
-    mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100); // Trigger first pulse after enough time
-    mockSys.setPinState(false); // LOW
-    cadenceInstance->cadence();
-    mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 110); // HIGH
-    mockSys.setPinState(true); // HIGH
-    cadenceInstance->cadence();
-
-    // After first pulse, total revs should be 1
-    TEST_ASSERT_EQUAL(1, cadenceInstance->totalRevs());
-
-    // Simulate a second pulse very quickly after the first (e.g., after 100ms from the first detection)
-    // The elapsedSampleTimeStamp was just updated to (DEBOUNCE_THRESHOLD_MS + 100).
-    // So, sampleTime will be (DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS) - (DEBOUNCE_THRESHOLD_MS + 100) = SHORT_INTERVAL_MS (100ms)
-    // This should be less than 330ms, so it should be ignored.
-    mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS); // Trigger second pulse
-    mockSys.setPinState(false); // LOW
-    cadenceInstance->cadence();
-    mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS + 10); // HIGH
-    mockSys.setPinState(true); // HIGH
-    cadenceInstance->cadence();
-
-    // Simulate a third pulse (e.g., after another 100ms) - also should be ignored
-    mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS * 2); // Trigger third pulse
-    mockSys.setPinState(false); // LOW
-    cadenceInstance->cadence();
-    mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS * 2 + 10); // HIGH
-    mockSys.setPinState(true); // HIGH
-    cadenceInstance->cadence();
-
-    // Advance time well beyond the debounce threshold to allow a calculation to happen, but no new pulses should be counted.
-    mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS * 2 + DEBOUNCE_THRESHOLD_MS + 100);
-    cadenceInstance->cadence();
-
-    TEST_MESSAGE("Checking total revolutions after debouncing simulation");
-    // Only the first pulse should have counted.
-    
-        TEST_ASSERT_EQUAL(1, cadenceInstance->totalRevs());
     }
+
     
-    void test_cadence_total_revs() {
-        // Simulate exactly 100 pulses and verify totalRevs() increments correctly.
-        const unsigned long NUM_PULSES = 100;
-        const unsigned long REVOLUTION_INTERVAL_MS = 1000; // 60 RPM for simplicity
+
+    void test_cadence_fractional_rpm() {
+
     
+
+        // Simulate ~60.5 RPM with a steady interval of 992ms.
+
+    
+
+        const unsigned long REVOLUTION_INTERVAL_MS = 992;
+
+    
+
+        const unsigned long SIMULATION_DURATION_MS = 10 * REVOLUTION_INTERVAL_MS;
+
+    
+
+    
+
+    
+
         mockSys.setPinState(true);
+
+    
+
         mockSys.setMillis(0);
-        cadenceInstance->cadence(); // Initialize
+
     
-        TEST_MESSAGE("Simulating 100 pulses and checking total revolutions.");
+
+        cadenceInstance->cadence();
+
     
-        for (unsigned long i = 0; i < NUM_PULSES; ++i) {
-            // Advance time for each pulse, ensuring it's outside the debounce threshold
-            unsigned long currentPulseTime = (i * REVOLUTION_INTERVAL_MS) + REVOLUTION_INTERVAL_MS;
-            
-            mockSys.setMillis(currentPulseTime - 50); // Pin HIGH before LOW
-            mockSys.setPinState(true);
-            cadenceInstance->cadence();
+
     
-            mockSys.setMillis(currentPulseTime); // Pin LOW (trigger)
-            mockSys.setPinState(false);
-            cadenceInstance->cadence();
+
     
-            mockSys.setMillis(currentPulseTime + 10); // Pin HIGH again
-            mockSys.setPinState(true);
-            cadenceInstance->cadence();
+
+        for (unsigned long t = 1; t <= SIMULATION_DURATION_MS + REVOLUTION_INTERVAL_MS; ++t) {
+
+    
+
+            mockSys.setMillis(t);
+
+    
+
+            if ((t % REVOLUTION_INTERVAL_MS) == 0) {
+
+    
+
+                mockSys.setPinState(false);
+
+    
+
+                cadenceInstance->cadence();
+
+    
+
+                mockSys.setPinState(true);
+
+    
+
+            } else {
+
+    
+
+                cadenceInstance->cadence();
+
+    
+
+            }
+
+    
+
         }
+
     
+
+    
+
+    
+
+        mockSys.setMillis(SIMULATION_DURATION_MS + REVOLUTION_INTERVAL_MS + 100);
+
+    
+
+        cadenceInstance->cadence();
+
+    
+
+    
+
+    
+
+        float actual_rpm_val = cadenceInstance->cadence();
+
+    
+
+        TEST_ASSERT_FLOAT_WITHIN(0.1f, 60.48f, actual_rpm_val);
+
+    
+
+    }
+
+    
+
+    void test_cadence_debouncing() {
+
+        // Simulate pulses arriving faster than the 330ms debouncing threshold
+
+        // Expect only one revolution to be counted within the short interval.
+
+        const unsigned long DEBOUNCE_THRESHOLD_MS = 330;
+
+        const unsigned long SHORT_INTERVAL_MS = 100; // Shorter than debounce threshold
+
+    
+
+        mockSys.setPinState(true);
+
+        mockSys.setMillis(0);
+
+        mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 10); // Ensure initial sampleTime > 330ms for the first pulse
+
+        cadenceInstance->cadence(); // Initialize
+
+    
+
+        // Simulate first pulse
+
+        mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100); // Trigger first pulse after enough time
+
+        mockSys.setPinState(false); // LOW
+
+        cadenceInstance->cadence();
+
+        mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 110); // HIGH
+
+        mockSys.setPinState(true); // HIGH
+
+        cadenceInstance->cadence();
+
+    
+
+        // After first pulse, total revs should be 1
+
+        TEST_ASSERT_EQUAL(1, cadenceInstance->totalRevs());
+
+    
+
+        // Simulate a second pulse very quickly after the first (e.g., after 100ms from the first detection)
+
+        mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS); // Trigger second pulse
+
+        mockSys.setPinState(false); // LOW
+
+        cadenceInstance->cadence();
+
+        mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS + 10); // HIGH
+
+        mockSys.setPinState(true); // HIGH
+
+        cadenceInstance->cadence();
+
+    
+
+        // Simulate a third pulse (e.g., after another 100ms) - also should be ignored
+
+        mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS * 2); // Trigger third pulse
+
+        mockSys.setPinState(false); // LOW
+
+        cadenceInstance->cadence();
+
+        mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS * 2 + 10); // HIGH
+
+        mockSys.setPinState(true); // HIGH
+
+        cadenceInstance->cadence();
+
+    
+
+        // Advance time well beyond the debounce threshold to allow a calculation to happen, but no new pulses should be counted.
+
+        mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS * 2 + DEBOUNCE_THRESHOLD_MS + 100);
+
+        cadenceInstance->cadence();
+
+    
+
+        TEST_MESSAGE("Checking total revolutions after debouncing simulation");
+
+        TEST_ASSERT_EQUAL(1, cadenceInstance->totalRevs());
+
+    }
+
+    
+
+    void test_cadence_total_revs() {
+
+        // Simulate exactly 100 pulses and verify totalRevs() increments correctly.
+
+        const unsigned long NUM_PULSES = 100;
+
+        const unsigned long REVOLUTION_INTERVAL_MS = 1000; // 60 RPM for simplicity
+
+    
+
+        mockSys.setPinState(true);
+
+        mockSys.setMillis(0);
+
+        cadenceInstance->cadence(); // Initialize
+
+    
+
+        TEST_MESSAGE("Simulating 100 pulses and checking total revolutions.");
+
+    
+
+        for (unsigned long i = 0; i < NUM_PULSES; ++i) {
+
+            // Advance time for each pulse, ensuring it's outside the debounce threshold
+
+            unsigned long currentPulseTime = (i * REVOLUTION_INTERVAL_MS) + REVOLUTION_INTERVAL_MS;
+
+            
+
+            mockSys.setMillis(currentPulseTime - 50); // Pin HIGH before LOW
+
+            mockSys.setPinState(true);
+
+            cadenceInstance->cadence();
+
+    
+
+            mockSys.setMillis(currentPulseTime); // Pin LOW (trigger)
+
+            mockSys.setPinState(false);
+
+            cadenceInstance->cadence();
+
+    
+
+            mockSys.setMillis(currentPulseTime + 10); // Pin HIGH again
+
+            mockSys.setPinState(true);
+
+            cadenceInstance->cadence();
+
+        }
+
+    
+
         TEST_MESSAGE("Checking final total revolutions.");
+
         TEST_ASSERT_EQUAL(NUM_PULSES, cadenceInstance->totalRevs());
+
     }
+
     
+
     int main() { // Renamed setup() to main() and changed return type to int
+
         UNITY_BEGIN();
+
     
+
         // Run tests
+
         RUN_TEST(test_cadence_initialization);
+
         RUN_TEST(test_cadence_steady_60rpm);
+
         RUN_TEST(test_cadence_steady_10rpm);
+
         RUN_TEST(test_cadence_steady_120rpm);
+
         RUN_TEST(test_cadence_sudden_stop);
+
         RUN_TEST(test_cadence_very_long_stop);
+
         RUN_TEST(test_cadence_inconsistent_pulses);
+
         RUN_TEST(test_cadence_debouncing);
+
         RUN_TEST(test_cadence_total_revs);
+
+        RUN_TEST(test_cadence_fractional_rpm);
+
     
+
         return UNITY_END(); // Return test result
+
     }
+
     

@@ -9,7 +9,7 @@ class Cadence
 public:
     explicit Cadence(uint8_t pinn, ISystemWrapper& sys);
 
-    int16_t cadence();
+    float cadence();
 
     uint32_t lastTimestamp();
 
@@ -20,7 +20,7 @@ public:
 private:
     ISystemWrapper& sys;
     const uint8_t pin;
-    int16_t rpm = 0;
+    float rpm = 0;
     int16_t debouncingCounter = 0;
     uint32_t lastIntervalTime = 0;
     bool oldState;
