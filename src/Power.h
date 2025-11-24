@@ -11,7 +11,7 @@ public:
         } else if (cadence >= 100) {
             cadencePointerForForPower = 80;
         } else {
-            cadencePointerForForPower = cadence - 20;
+            cadencePointerForForPower = static_cast<int>(cadence) - 20;
         }
 
         if (cadence < 10) {

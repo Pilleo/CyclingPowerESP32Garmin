@@ -7,6 +7,7 @@ public:
     explicit ResistanceLevel(uint8_t backwardsPin, uint8_t limitPin, uint8_t positionPin, uint8_t forwardsPin, ISystemWrapper& sys);
 
     uint8_t level();
+    uint16_t getPositionChangeCounter();
 
 private:
     ISystemWrapper& sys;

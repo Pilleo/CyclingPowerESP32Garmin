@@ -98,3 +98,7 @@ uint8_t ResistanceLevel::level() {
     }
     return currentLevel;
 }
+
+uint16_t ResistanceLevel::getPositionChangeCounter() {
+    return positionChangeCounter;
+}

@@ -1,3 +1,4 @@
+#ifndef NATIVE_TEST
 // Bluedroid is incompatible with Garmin
 // https://github.com/ihaque/pelomon/blob/main/pelomon/ble_constants.h
 #include "ble_constants.h"
@@ -100,3 +101,4 @@ void loop()
     }
   }
 }
+#endif

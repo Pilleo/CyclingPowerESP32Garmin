@@ -1,7 +1,6 @@
+#ifndef NATIVE_TEST
 //
-
 // Created by leanid on 26.1.24.
-
 //
 
 #include "BLECyclingPowerService.h"
@@ -269,3 +268,4 @@ void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(uint16_t curren
     oldDeviceConnected = deviceConnected;
   }
 }
+#endif
