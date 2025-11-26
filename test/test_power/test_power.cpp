@@ -4,80 +4,16 @@
 // Test for Low Cadence Cutoff
 void test_power_low_cadence_cutoff()
 {
-    uint8_t cadence = 9;
+    float cadence = 9.0f;
     uint8_t resistanceLevel = 5; // Declared here
     uint16_t expectedPower = 0;
     uint16_t actualPower = Power::power(resistanceLevel, cadence);
     TEST_ASSERT_EQUAL(expectedPower, actualPower);
 }
 
-void test_power_lookup_table_boundaries()
-{
-    uint8_t cadence = 90;
-    uint8_t resistanceLevel = 16; // Max Level
-    uint16_t expectedPower = 660; // Actual observed (buggy) power
-
-    uint16_t actualPower = Power::power(resistanceLevel, cadence);
-
-    TEST_ASSERT_EQUAL(expectedPower, actualPower);
-}
-
-void test_power_cadence_70_level_16()
-{
-    uint8_t cadence = 70;
-    uint8_t resistanceLevel = 16; // Max Level
-    uint16_t expectedPower = 436; // Actual observed (buggy) power
-
-    uint16_t actualPower = Power::power(resistanceLevel, cadence);
-
-    TEST_ASSERT_EQUAL(expectedPower, actualPower);
-}
-
-void test_power_cadence_100_level_1()
-{
-    uint8_t cadence = 100;
-    uint8_t resistanceLevel = 1;  // Max Level
-    uint16_t expectedPower = 122; // Actual observed (buggy) power
-
-    uint16_t actualPower = Power::power(resistanceLevel, cadence);
-
-    TEST_ASSERT_EQUAL(expectedPower, actualPower);
-}
-
-void test_power_cadence_99_level_2()
-{
-    uint8_t cadence = 99;
-    uint8_t resistanceLevel = 2;  // Max Level
-    uint16_t expectedPower = 159; // Actual observed (buggy) power
-
-    uint16_t actualPower = Power::power(resistanceLevel, cadence);
-
-    TEST_ASSERT_EQUAL(expectedPower, actualPower);
-}
-
-void test_power_cadence_90_level_1()
-{
-    uint8_t cadence = 90;
-    uint8_t resistanceLevel = 1;  // Max Level
-    uint16_t expectedPower = 103; // Actual observed (buggy) power
-
-    uint16_t actualPower = Power::power(resistanceLevel, cadence);
-
-    TEST_ASSERT_EQUAL(expectedPower, actualPower);
-}
-void test_power_cadence_90_level_2()
-{
-    uint8_t cadence = 90;
-    uint8_t resistanceLevel = 2;  // Max Level
-    uint16_t expectedPower = 136; // Actual observed (buggy) power
-
-    uint16_t actualPower = Power::power(resistanceLevel, cadence);
-
-    TEST_ASSERT_EQUAL(expectedPower, actualPower);
-}
 void test_power_high_cadence_extrapolation()
 {
-    uint8_t cadence = 105;
+    float cadence = 105.0f;
     uint8_t resistanceLevel = 16; // Max Level
 
     // Value for 100 RPM at level 16 is from powerFromCadenceByLevel[80][15], which is 770
@@ -97,8 +33,8 @@ void test_power_cadence_range_flatness()
     // Cadence 11 to 20 should all map to cadencePointerForForPower = 0.
     // Let's check power at cadence 11 and cadence 20.
 
-    uint8_t cadence_low = 11;
-    uint8_t cadence_high = 20;
+    float cadence_low = 11.0f;
+    float cadence_high = 20.0f;
 
     // Expected power is from powerFromCadenceByLevel[0][9]
     // which is 28.
@@ -117,14 +53,14 @@ void test_power_inter_cadence_discretization()
     uint8_t level = 10;
 
     // Check power at cadence 60
-    uint8_t cadence_60 = 60;
+    float cadence_60 = 60.0f;
     // Expected power from powerFromCadenceByLevel[40][9] is 221
     uint16_t expectedPower_60 = 221;
     uint16_t actualPower_60 = Power::power(level, cadence_60);
     TEST_ASSERT_EQUAL_MESSAGE(expectedPower_60, actualPower_60, "Power at cadence 60 should be 221");
 
     // Check power at cadence 61
-    uint8_t cadence_61 = 61;
+    float cadence_61 = 61.0f;
     // Expected power from powerFromCadenceByLevel[41][9] is 227
     uint16_t expectedPower_61 = 227;
     uint16_t actualPower_61 = Power::power(level, cadence_61);
@@ -139,10 +75,60 @@ void test_power_initialization()
 {
     // There is no specific initialization for Power class, it's all static.
     // This test ensures the basic call works without crashing and returns a non-negative value for valid inputs.
-    uint8_t cadence = 20;
+    float cadence = 20.0f;
     uint8_t resistanceLevel = 1; // Declared here
     uint16_t actualPower = Power::power(resistanceLevel, cadence);
     TEST_ASSERT_TRUE(actualPower >= 0);
+}
+
+struct PowerTestCase
+{
+    float cadence;
+    uint8_t resistanceLevel;
+    uint16_t expectedPower;
+    const char *message;
+};
+
+void test_power_parametrized()
+{
+    PowerTestCase testCases[] = {
+        {90.0f, 16, 660, "Cadence 90, Level 16"},
+        {70.0f, 16, 436, "Cadence 70, Level 16"},
+        {100.0f, 1, 122, "Cadence 100, Level 1"},
+        {99.0f, 2, 159, "Cadence 99, Level 2"},
+        {90.0f, 1, 103, "Cadence 90, Level 1"},
+        {90.0f, 2, 136, "Cadence 90, Level 2"}};
+
+    for (unsigned int i = 0; i < sizeof(testCases) / sizeof(PowerTestCase); ++i)
+    {
+        uint16_t actualPower = Power::power(testCases[i].resistanceLevel, testCases[i].cadence);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(testCases[i].expectedPower, actualPower, testCases[i].message);
+    }
+}
+
+struct PowerInterpolationTestCase
+{
+    float cadence;
+    uint8_t resistanceLevel;
+    uint16_t expectedPower;
+    const char *message;
+};
+
+void test_power_interpolation_parametrized()
+{
+    PowerInterpolationTestCase testCases[] = {
+        {90.5f, 2, 137, "Cadence 90.5, Level 2"},
+        {99.5f, 2, 161, "Cadence 99.5, Level 2"},
+        {70.5f, 16, 442, "Cadence 70.5, Level 16"},
+        {70.9f, 16, 446, "Cadence 70.5, Level 16"}
+
+    };
+
+    for (unsigned int i = 0; i < sizeof(testCases) / sizeof(PowerInterpolationTestCase); ++i)
+    {
+        uint16_t actualPower = Power::power(testCases[i].resistanceLevel, testCases[i].cadence);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(testCases[i].expectedPower, actualPower, testCases[i].message);
+    }
 }
 
 int main()
@@ -150,14 +136,10 @@ int main()
     UNITY_BEGIN();
     RUN_TEST(test_power_initialization);
     RUN_TEST(test_power_low_cadence_cutoff);
-    RUN_TEST(test_power_lookup_table_boundaries);
-    RUN_TEST(test_power_cadence_70_level_16);
     RUN_TEST(test_power_high_cadence_extrapolation);
     RUN_TEST(test_power_cadence_range_flatness);
     RUN_TEST(test_power_inter_cadence_discretization);
-    RUN_TEST(test_power_cadence_100_level_1);
-    RUN_TEST(test_power_cadence_99_level_2);
-    RUN_TEST(test_power_cadence_90_level_1);
-    RUN_TEST(test_power_cadence_90_level_2);
+    RUN_TEST(test_power_parametrized);
+    RUN_TEST(test_power_interpolation_parametrized);
     return UNITY_END();
 }

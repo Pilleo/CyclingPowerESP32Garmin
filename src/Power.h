@@ -1,30 +1,51 @@
 
+#include <cmath>
+#include <cstdint>
+
 class Power {
 public:
-    static   uint16_t power(const uint8_t resistanceLevel, const float cadence) {
-        uint16_t power;
-
-        int cadencePointerForForPower;
-        uint8_t int_cadence = static_cast<uint8_t>(cadence); // Use integer part of cadence for lookup
-
-        if (int_cadence <= 20 && int_cadence > 0) {
-            cadencePointerForForPower = 0;
-        } else if (int_cadence >= 100) {
-            cadencePointerForForPower = 80;
-        } else {
-            cadencePointerForForPower = static_cast<int>(int_cadence) - 20;
+    static uint16_t power(const uint8_t resistanceLevel, const float cadence) {
+        if (cadence < 10.0f) {
+            return 0;
         }
 
-        if (int_cadence < 10) {
-            power = 0;
-        } else if (int_cadence > 100) {
-            power = powerFromCadenceByLevel[cadencePointerForForPower][resistanceLevel - 1] + (static_cast<int>(int_cadence)-100)*2;
-        }
-        else {
-            power = powerFromCadenceByLevel[cadencePointerForForPower][resistanceLevel - 1];
-        }
+        // Get the integer and fractional parts of the cadence
+        float int_part;
+        float frac_part = modff(cadence, &int_part);
+        int cadence_floor = static_cast<int>(int_part);
+        int cadence_ceil = cadence_floor + 1;
 
-        return power;
+        // Lambda to get power for a given integer cadence from the table
+        auto get_power_for_cadence = [&](int c) -> uint16_t {
+            int cadencePointer;
+            if (c <= 20) {
+                cadencePointer = 0;
+            } else if (c >= 100) {
+                cadencePointer = 80;
+            } else {
+                cadencePointer = c - 20;
+            }
+
+            uint16_t p;
+            if (c < 10) {
+                p = 0;
+            } else if (c > 100) {
+                // Extrapolate for cadence > 100
+                p = powerFromCadenceByLevel[80][resistanceLevel - 1] + (c - 100) * 2;
+            } else {
+                p = powerFromCadenceByLevel[cadencePointer][resistanceLevel - 1];
+            }
+            return p;
+        };
+
+        // Get power for floor and ceil cadence
+        uint16_t power_floor = get_power_for_cadence(cadence_floor);
+        uint16_t power_ceil = get_power_for_cadence(cadence_ceil);
+
+        // Linearly interpolate the power
+        float interpolated_power = power_floor + (static_cast<float>(power_ceil) - static_cast<float>(power_floor)) * frac_part;
+
+        return static_cast<uint16_t>(roundf(interpolated_power));
     };
 
 
