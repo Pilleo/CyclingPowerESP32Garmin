@@ -25,7 +25,7 @@ bool deviceConnected = false;
 
 bool oldDeviceConnected = false;
 
-struct __attribute__((__packed__)) CPSMeasurement_t
+static struct __attribute__((__packed__)) CPSMeasurement_t
 
 {
 
@@ -172,7 +172,7 @@ void BLECyclingPowerService::setup_BLE_server_multiconnect_NimBLE()
   BLEDevice::startAdvertising();
 }
 
-int random(int min, int max) // range : [min, max]
+static auto random(int min, int max) -> int // range : [min, max]
 
 {
 
@@ -190,7 +190,7 @@ int random(int min, int max) // range : [min, max]
   return min + rand() % ((max + 1) - min);
 }
 
-void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(uint16_t currentPower, Cadence &cadence)
+void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(const uint16_t currentPower, const Cadence &cadence)
 
 {
 

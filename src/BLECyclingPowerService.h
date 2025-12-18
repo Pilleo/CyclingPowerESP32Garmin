@@ -14,7 +14,7 @@
 
 class BLECyclingPowerService {
 public:
-    static void loop_BLE_server_multiconnect_NimBLE(uint16_t  currentPower, Cadence &cadence);
+    static void loop_BLE_server_multiconnect_NimBLE( uint16_t  currentPower, const Cadence &cadence);
     static void setup_BLE_server_multiconnect_NimBLE();
 };
 

@@ -10,18 +10,16 @@
 #include <Power.h>
 #include "SystemWrapper.h"
 
-unsigned long lastDataSentTimestamp = 0;
-uint16_t currentPower = 0;
+static unsigned long lastDataSentTimestamp = 0;
+static uint16_t currentPower = 0;
 
 static constexpr uint8_t backwordsPin = 4;
 static constexpr uint8_t limitPin = 18;
 static constexpr uint8_t forwardPin = 19;
 static constexpr uint8_t positionPin = 23;
-ArduinoSystemWrapper sys;
-ResistanceLevel lvl(backwordsPin, limitPin, positionPin, forwardPin, sys);
-Cadence freq(15, sys);
-const char *ssid = "error";
-const char *password = "tpdavid19";
+static ArduinoSystemWrapper sys;
+static ResistanceLevel lvl(backwordsPin, limitPin, positionPin, forwardPin, sys);
+static Cadence freq(15, sys);
 
 void setup()
 {
@@ -46,8 +44,8 @@ void loop()
   // Serial.print("I received: ");
   // Serial.println(incomingRPM, DEC);
 
-  int timeFrameForBlink = 60000 / incomingRPM;
-  long start = millis();
+  int const timeFrameForBlink = 60000 / incomingRPM;
+  long const start = millis();
 
   if (start - lastBlink >= timeFrameForBlink)
   {
@@ -95,8 +93,8 @@ void loop()
       Serial.println("nothing to sent, rpm is -1");
       Serial.println(cad);
       // deviceConnected = false;
-      const bool cadenceState = digitalRead(GPIO_NUM_15);
-      esp_sleep_enable_ext0_wakeup(GPIO_NUM_15, !cadenceState);
+      const bool cadenceState = digitalRead(GPIO_NUM_15) != 0;
+      esp_sleep_enable_ext0_wakeup(GPIO_NUM_15, static_cast<int>(!cadenceState));
       esp_deep_sleep_start();
     }
   }

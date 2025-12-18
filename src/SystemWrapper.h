@@ -9,18 +9,19 @@
 
 class ISystemWrapper {
 public:
-    virtual unsigned long millis() = 0;
-    virtual int digitalRead(uint8_t pin) = 0;
+
+    virtual auto millis() -> unsigned long = 0;
+    virtual auto digitalRead(uint8_t pin) -> int = 0;
 };
 
 #ifndef NATIVE_TEST
 class ArduinoSystemWrapper : public ISystemWrapper {
 public:
-    unsigned long millis() override {
+    auto millis() -> unsigned long override {
         return ::millis();
     }
 
-    int digitalRead(uint8_t pin) override {
+    auto digitalRead(const uint8_t pin) -> int override {
         return ::digitalRead(pin);
     }
 };

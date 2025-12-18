@@ -7,19 +7,19 @@ ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limit
     // pinMode(INPUT_PULLUP, forwardsPin);
     // pinMode(INPUT_PULLUP, positionPin);
     // pinMode(INPUT_PULLUP, limittPin);
-    oldState = sys.digitalRead(positionPin);
+    oldState = (sys.digitalRead(positionPin) != 0);
     currentLevel = 1;
     elapsedSampleTimeForLevel = 0;
     prevDirection = true;
     positionChangeCounter = 0;
 }
 
-bool ResistanceLevel::wasInPositiveDirection() const {
+auto ResistanceLevel::wasInPositiveDirection() const -> bool {
     return prevDirection;
 }
 
 void ResistanceLevel::isFirstLevel(bool forward) {
-    const bool limitState = sys.digitalRead(limittPin);
+    const bool limitState = sys.digitalRead(limittPin) != 0;
 
     if (!forward && limitState) {
         positionChangeCounter = 0;
@@ -27,21 +27,21 @@ void ResistanceLevel::isFirstLevel(bool forward) {
     }
 }
 
-bool ResistanceLevel::isConsistentMovement(unsigned long sampleTime) {
+auto ResistanceLevel::isConsistentMovement(unsigned long sampleTime) -> bool {
     return sampleTime < 50;
 }
 
-bool ResistanceLevel::isMovementAfterLongPause(unsigned long sampleTime) {
+auto ResistanceLevel::isMovementAfterLongPause(unsigned long sampleTime) -> bool {
     return sampleTime > 1700;
 }
 
-uint8_t ResistanceLevel::level() {
-    const bool preBack = sys.digitalRead(backwardsPin);
-    const bool preForward = sys.digitalRead(forwardsPin);
-    const bool positionState = sys.digitalRead(positionPin);
+auto ResistanceLevel::level() -> uint8_t {
+    const bool preBack = sys.digitalRead(backwardsPin) != 0;
+    const bool preForward = sys.digitalRead(forwardsPin) != 0;
+    const bool positionState = sys.digitalRead(positionPin) != 0;
 
-    const bool back = preBack && preForward == false;
-    const bool forward = preForward && preBack == false;
+    const bool back = preBack && !preForward;
+    const bool forward = preForward && !preBack;
     isFirstLevel(forward);
 
     const unsigned long mls = sys.millis();
@@ -99,6 +99,6 @@ uint8_t ResistanceLevel::level() {
     return currentLevel;
 }
 
-uint16_t ResistanceLevel::getPositionChangeCounter() {
+auto ResistanceLevel::getPositionChangeCounter() const -> uint16_t {
     return positionChangeCounter;
 }

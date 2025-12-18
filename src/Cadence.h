@@ -9,13 +9,13 @@ class Cadence
 public:
     explicit Cadence(uint8_t pinn, ISystemWrapper& sys);
 
-    float cadence();
+    auto cadence() -> float;
 
-    uint32_t lastTimestamp();
+    auto lastTimestamp() const -> uint32_t;
 
-    uint32_t totalRevs();
+    auto getGattLastCrankRevolutionTimestamp() const -> uint16_t;
 
-    uint16_t getGattLastCrankRevolutionTimestamp();
+    auto totalRevs() const -> uint32_t;
 
 private:
     ISystemWrapper& sys;

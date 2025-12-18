@@ -6,8 +6,8 @@ class ResistanceLevel
 public:
     explicit ResistanceLevel(uint8_t backwardsPin, uint8_t limitPin, uint8_t positionPin, uint8_t forwardsPin, ISystemWrapper& sys);
 
-    uint8_t level();
-    uint16_t getPositionChangeCounter();
+    auto level() -> uint8_t;
+    auto getPositionChangeCounter() const -> uint16_t;
 
 private:
     ISystemWrapper& sys;
@@ -22,7 +22,7 @@ private:
     uint16_t positionChangeCounter;
 
     void isFirstLevel(bool back);
-    bool wasInPositiveDirection() const;
-    static bool isConsistentMovement(unsigned long sampleTime);
-    static bool isMovementAfterLongPause(unsigned long sampleTime);
+    auto wasInPositiveDirection() const -> bool;
+    static auto isConsistentMovement(unsigned long sampleTime) -> bool;
+    static auto isMovementAfterLongPause(unsigned long sampleTime) -> bool;
 };
