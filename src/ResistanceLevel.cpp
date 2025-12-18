@@ -10,7 +10,6 @@ namespace {
         uint8_t level;
     };
 
-    // Derived from original logic.
     // Ranges map the 'positionChangeCounter' ticks to a Resistance Level (1-16).
     constexpr std::array<LevelRange, 16> LEVEL_RANGES = {{
         {0,   29,    1},
@@ -38,7 +37,6 @@ ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limit
                                  const uint8_t forwardsPin, ISystemWrapper& sys)
     : sys(sys), limitPin(limitPin), backwardsPin(backwardsPin), positionPin(positionPin), forwardsPin(forwardsPin)
 {
-    // Pins are assumed to be initialized (INPUT_PULLUP) by caller or SystemWrapper
     oldPositionState = (sys.digitalRead(positionPin) != 0);
     currentLevel = MIN_LEVEL;
     lastPulseTimestamp = 0;
@@ -46,7 +44,6 @@ ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limit
     positionChangeCounter = 0;
 }
 
-// Legacy wrapper
 auto ResistanceLevel::level() -> uint8_t {
     update();
     return getLevel();
@@ -63,69 +60,48 @@ auto ResistanceLevel::getPositionChangeCounter() const -> uint16_t {
 void ResistanceLevel::checkResetCondition(bool isMovingForward) {
     const bool limitActive = (sys.digitalRead(limitPin) != 0);
 
-    // If moving backwards (or idle) and hitting the limit switch, reset position.
-    // NOTE: This relies on limitPin being reliable.
+    // If limit switch is hit and we are NOT moving forward, reset.
     if (!isMovingForward && limitActive) {
         positionChangeCounter = 0;
         currentLevel = MIN_LEVEL;
     }
 }
 
-void ResistanceLevel::updatePositionCounter(bool isMovingForward, bool isMovingBack, unsigned long now) {
-    const unsigned long timeSinceLastPulse = now - lastPulseTimestamp;
+void ResistanceLevel::updatePositionCounter(bool isMovingForward, bool isMovingBack, unsigned long deltaMs) {
 
-    // Helper lambdas for readability
-    auto isFastMovement = [&]() { return timeSinceLastPulse < MOVEMENT_TIMEOUT_MS; };
-    auto isResumeAfterPause = [&]() { return timeSinceLastPulse > PAUSE_TIMEOUT_MS; };
+    // Conditions used in original logic:
+    // 1. Consistent Movement: time < 50ms
+    // 2. Resume After Pause: time > 1700ms
+    bool isFastMovement = (deltaMs < MOVEMENT_TIMEOUT_MS);
+    bool isResumeAfterPause = (deltaMs > PAUSE_TIMEOUT_MS);
 
-    // Direction Consistency Check:
-    // Only count pulses if the current direction matches the previous direction state.
-    // 'movingForward' stores the state from the PREVIOUS pulse cycle.
-    bool directionIsStable = (movingForward == isMovingForward);
-
+    // Logic:
     if (isMovingForward) {
-        // Increment Condition:
-        // 1. Consistent fast forward movement
-        // 2. Or starting to move forward after a long pause
-        if ((isFastMovement() && directionIsStable) || isResumeAfterPause()) {
+        // Original: if (forward && ((isConsistentMovement && wasInPositiveDirection) || isMovementAfterLongPause))
+        // wasInPositiveDirection returns prevDirection (movingForward).
+        // So we check if PREVIOUS state was also forward.
+        if ((isFastMovement && movingForward) || isResumeAfterPause) {
             positionChangeCounter++;
         }
-        // Update direction history (we are definitely moving forward)
-        movingForward = true;
-
-    } else if (isMovingBack) {
-        // Decrement Condition:
-        // Must check directionIsStable against the PREVIOUS state.
-        // If we were moving Forward previously, movingForward=true.
-        // Now isMovingBack=true.
-        // We need to know if we were previously moving Backward.
-        // If movingForward was true, then we CHANGED direction.
-
-        // Let's refine directionIsStable logic for backward:
-        // if movingForward was TRUE, then we are NOT stable in backward motion.
-        // if movingForward was FALSE, then we MIGHT be stable (assuming we were backing before).
-
-        bool prevWasBack = !movingForward;
-
-        if (positionChangeCounter > 0) {
-            if (isResumeAfterPause() || (isFastMovement() && prevWasBack)) {
-                positionChangeCounter--;
-            }
+    } else if (isMovingBack && positionChangeCounter > 0) {
+        // Original: else if (counter > 0 && back && (isMovementAfterLongPause || (isConsistentMovement && !wasInPositiveDirection)))
+        // !wasInPositiveDirection means previous state was NOT forward (False).
+        if (isResumeAfterPause || (isFastMovement && !movingForward)) {
+            positionChangeCounter--;
         }
-        // Update direction history (we are definitely moving backward)
-        movingForward = false;
     }
 
-    // If neither is moving (Idle/Glitch), we do NOT update the counter or the direction history.
+    // Update History (matches "prevDirection = forward" at end of block)
+    // Note: If pins are Idle/Invalid (both false/true), isMovingForward is false,
+    // so movingForward becomes false. This matches original behavior perfectly.
+    movingForward = isMovingForward;
 }
 
 void ResistanceLevel::updateLevelFromCounter() {
-    // Iterate through the ranges to find a match.
-    // If current counter is in a "gap" (dead zone), we do NOT update currentLevel.
     for (const auto& range : LEVEL_RANGES) {
         if (positionChangeCounter >= range.minCount && positionChangeCounter <= range.maxCount) {
             currentLevel = range.level;
-            return; // Found match, exit early
+            return;
         }
     }
 }
@@ -141,7 +117,6 @@ void ResistanceLevel::update() {
     const bool isMovingForward = pinForward && !pinBack;
 
     // 2. Handle Limit Reset
-    // Note: We pass isMovingForward to ensure we don't reset while intentionally moving up.
     checkResetCondition(isMovingForward);
 
     const unsigned long now = sys.millis();
@@ -150,17 +125,17 @@ void ResistanceLevel::update() {
     // 3. Detect Position Pulse (Debounced)
     if (pinPosition != oldPositionState && timeSinceLastPulse > DEBOUNCE_TIME_MS) {
 
-        // State changed, register the pulse
         oldPositionState = pinPosition;
-        lastPulseTimestamp = now;
 
         // 4. Update Counter Logic
-        // STRICT CHECK: Only update if strictly one direction is active.
-        if (isMovingForward || isMovingBack) {
-            updatePositionCounter(isMovingForward, isMovingBack, now);
-        }
+        // CRITICAL FIX: Pass 'timeSinceLastPulse' (delta) computed BEFORE updating lastPulseTimestamp.
+        // We also pass isMovingBack to handle the strict logic flow.
+        updatePositionCounter(isMovingForward, isMovingBack, timeSinceLastPulse);
 
-        // 5. Map Counter to Level
+        // 5. Update Timestamp (After logic uses the delta)
+        lastPulseTimestamp = now;
+
+        // 6. Map Counter to Level
         updateLevelFromCounter();
     }
 }

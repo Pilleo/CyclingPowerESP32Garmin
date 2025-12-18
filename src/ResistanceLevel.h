@@ -10,38 +10,12 @@
 class ResistanceLevel
 {
 public:
-    /**
-     * @brief Construct a new Resistance Level object
-     *
-     * @param backwardsPin Pin indicating backward movement
-     * @param limitPin Pin indicating the physical limit (reset) switch
-     * @param positionPin Pin giving pulses for position increments
-     * @param forwardsPin Pin indicating forward movement
-     * @param sys System wrapper for hardware abstraction
-     */
     explicit ResistanceLevel(uint8_t backwardsPin, uint8_t limitPin, uint8_t positionPin, uint8_t forwardsPin, ISystemWrapper& sys);
 
-    /**
-     * @brief Main processing loop. Reads sensors and updates internal state.
-     * Should be called frequently in the main loop.
-     */
     void update();
 
-    /**
-     * @brief Gets the currently calculated resistance level.
-     * @return uint8_t Level (1-16)
-     */
     auto getLevel() const -> uint8_t;
-
-    /**
-     * @brief Returns the raw internal position counter (useful for debugging/calibration).
-     */
     auto getPositionChangeCounter() const -> uint16_t;
-
-    /**
-     * @brief Legacy wrapper for backward compatibility.
-     * Calls update() and returns getLevel().
-     */
     auto level() -> uint8_t;
 
 private:
@@ -54,12 +28,24 @@ private:
     bool oldPositionState;
     uint8_t currentLevel;
     uint32_t lastPulseTimestamp;
-    bool movingForward; // true = forward, false = backward
+
+    // Tracks the direction state of the *previous* pulse.
+    // Equivalent to 'prevDirection' in the original code.
+    bool movingForward;
+
     uint16_t positionChangeCounter;
 
     // --- Logic Helpers ---
     void checkResetCondition(bool isMovingForward);
-    void updatePositionCounter(bool isMovingForward,bool isMovingBack, unsigned long now);
+
+    /**
+     * @brief Updates the position counter based on direction and time delta.
+     * @param isMovingForward Current pin state indicating forward.
+     * @param isMovingBack Current pin state indicating backward.
+     * @param deltaMs Time in milliseconds since the last pulse.
+     */
+    void updatePositionCounter(bool isMovingForward, bool isMovingBack, unsigned long deltaMs);
+
     void updateLevelFromCounter();
 
     // --- Constants ---
