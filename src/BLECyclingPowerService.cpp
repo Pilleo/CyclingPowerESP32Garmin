@@ -21,9 +21,9 @@ BLECharacteristic *pCharacteristic = nullptr;
 
 BLECharacteristic *pCharacteristicBatteryLevel = nullptr;
 
-bool deviceConnected = false;
+static bool deviceConnected = false;
 
-bool oldDeviceConnected = false;
+static bool oldDeviceConnected = false;
 
 static struct __attribute__((__packed__)) CPSMeasurement_t
 
@@ -45,59 +45,12 @@ static struct __attribute__((__packed__)) CPSMeasurement_t
 
 } CPSMeasurement;
 
-class MyCallback final : public BLECharacteristicCallbacks
-
-{
-
-  // write performed on the control point characteristic
-
-  void onWrite(BLECharacteristic *pCharacteristic, NimBLEConnInfo &connInfo) override
-
-  {
-
-    const std::string message = pCharacteristic->getValue();
-
-    // std::string - very important, as it doesnt stop when getting a byte of zeros
-
-    Serial.print("write");
-
-    Serial.print("'");
-
-    for (int i = 0; i < message.length(); i++)
-
-      Serial.print(message[i]);
-
-    // print the message byte by byte - any conversion to a normal String terminates it on a byte of zeros
-
-    Serial.print("'"); // for debugging and new messages
-
-    constexpr uint8_t value[3] = {0x80, 50, 0x01};
-
-    // confirmation data, default - 0x02 - Op "Code not supported", no app cares
-
-    pCharacteristic->setValue(value, 3); // response to write
-
-    pCharacteristic->indicate(); // indicate response
-  }
-
-  void onRead(BLECharacteristic *pCharacteristic, NimBLEConnInfo &connInfo) override
-
-  {
-
-    Serial.print("onRead(");
-
-    Serial.println(pCharacteristic->getUUID().toString().c_str());
-  };
-};
-
 class MyServerCallbacks final : public BLEServerCallbacks
 
 {
 
-  void onConnect(BLEServer *pServer, NimBLEConnInfo &connInfo) override
-
-  {
-
+  auto onConnect(BLEServer *pServer, NimBLEConnInfo &connInfo) -> void override {
+    Serial.print("onConnect(");
     deviceConnected = true;
 
     BLEDevice::startAdvertising();
@@ -106,6 +59,7 @@ class MyServerCallbacks final : public BLEServerCallbacks
   void onDisconnect(BLEServer *pServer, NimBLEConnInfo &connInfo, int reason) override
 
   {
+    Serial.print("onDisconnect(");
 
     deviceConnected = false;
   }
@@ -137,11 +91,8 @@ void BLECyclingPowerService::setup_BLE_server_multiconnect_NimBLE()
 
   pCharCPSFeature->setValue(CPF_CRANK_REVOLUTION_DATA_SUPPORTED | CPF_WHEEL_REVOLUTION_DATA_SUPPORTED);
 
-  BLECharacteristic *pCharControl_point = pService->createCharacteristic(
 
-      "2A66", NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::INDICATE);
 
-  pCharControl_point->setCallbacks(new MyCallback());
 
   BLECharacteristic *pCharSensor_location = pService->createCharacteristic(
 
@@ -172,23 +123,6 @@ void BLECyclingPowerService::setup_BLE_server_multiconnect_NimBLE()
   BLEDevice::startAdvertising();
 }
 
-static auto random(int min, int max) -> int // range : [min, max]
-
-{
-
-  static bool first = true;
-
-  if (first)
-
-  {
-
-    srand(time(NULL)); // seeding for the first time only!
-
-    first = false;
-  }
-
-  return min + rand() % ((max + 1) - min);
-}
 
 void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(const uint16_t currentPower, const Cadence &cadence)
 
