@@ -14,6 +14,12 @@ ResistanceLevel *resistanceLevelInstance;
 void setUp(void) {
     // set stuff up here
     mockSys = MockSystemWrapper(); // Reset mock system wrapper
+    // Initialize default safe state
+    mockSys.setPinState(LIMIT_PIN, false);
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(POSITION_PIN, false);
+
     resistanceLevelInstance = new ResistanceLevel(BACKWARDS_PIN, LIMIT_PIN, POSITION_PIN, FORWARD_PIN, mockSys);
 }
 
@@ -23,6 +29,7 @@ void tearDown(void) {
     resistanceLevelInstance = nullptr;
 }
 
+// --- ORIGINAL HELPER ---
 void simulate_position_change(unsigned long &time) {
     // Simulate a transition from HIGH to LOW (or vice-versa) on the position pin
     // that triggers one increment of positionChangeCounter in ResistanceLevel::level()
@@ -32,12 +39,14 @@ void simulate_position_change(unsigned long &time) {
     mockSys.setMillis(time);
 
     // Toggle the position pin state and call level() to process the change
-    // This assumes positionChangeCounter increments on either HIGH->LOW or LOW->HIGH transitions,
-    // as long as `forward` is true.
     bool currentState = mockSys.digitalRead(POSITION_PIN);
     mockSys.setPinState(POSITION_PIN, !currentState);
     resistanceLevelInstance->level();
 }
+
+// ==========================================
+//           ORIGINAL TESTS
+// ==========================================
 
 void test_resistance_initialization() {
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
@@ -49,7 +58,8 @@ void test_resistance_limit_switch_reset() {
     mockSys.setMillis(time);
     mockSys.setPinState(BACKWARDS_PIN, false);
     mockSys.setPinState(FORWARD_PIN, true);
-    for (int i = 0; i < 370; ++i) { // Set positionChangeCounter to 370
+    for (int i = 0; i < 370; ++i) {
+        // Set positionChangeCounter to 370
         simulate_position_change(time);
     }
     // With 370 position changes, level should be 4
@@ -74,7 +84,8 @@ void test_resistance_limit_switch_reset() {
     mockSys.setPinState(LIMIT_PIN, false); // limit switch no longer active
     mockSys.setPinState(BACKWARDS_PIN, false);
     mockSys.setPinState(FORWARD_PIN, true);
-    for (int i = 0; i < 50; ++i) { // 50 steps is less than threshold for level 2 (169)
+    for (int i = 0; i < 50; ++i) {
+        // 50 steps is less than threshold for level 2 (169)
         simulate_position_change(time);
     }
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
@@ -98,17 +109,20 @@ void test_resistance_level_hysteresis() {
         simulate_position_change(time);
     }
     TEST_ASSERT_EQUAL_MESSAGE(1, resistanceLevelInstance->level(), "Level should be 1 at count 168");
-    TEST_ASSERT_EQUAL_MESSAGE(168, resistanceLevelInstance->getPositionChangeCounter(), "Position counter should be 168");
+    TEST_ASSERT_EQUAL_MESSAGE(168, resistanceLevelInstance->getPositionChangeCounter(),
+                              "Position counter should be 168");
 
     // Simulate one more click to count 169 (Still Expected Level 1, as range is >169)
     simulate_position_change(time);
     TEST_ASSERT_EQUAL_MESSAGE(1, resistanceLevelInstance->level(), "Level should still be 1 at count 169");
-    TEST_ASSERT_EQUAL_MESSAGE(169, resistanceLevelInstance->getPositionChangeCounter(), "Position counter should be 169");
+    TEST_ASSERT_EQUAL_MESSAGE(169, resistanceLevelInstance->getPositionChangeCounter(),
+                              "Position counter should be 169");
 
     // Simulate one more click to count 170 (Expected Level 2)
     simulate_position_change(time);
     TEST_ASSERT_EQUAL_MESSAGE(2, resistanceLevelInstance->level(), "Level should become 2 at count 170");
-    TEST_ASSERT_EQUAL_MESSAGE(170, resistanceLevelInstance->getPositionChangeCounter(), "Position counter should be 170");
+    TEST_ASSERT_EQUAL_MESSAGE(170, resistanceLevelInstance->getPositionChangeCounter(),
+                              "Position counter should be 170");
 }
 
 void test_resistance_direction_detection() {
@@ -119,7 +133,7 @@ void test_resistance_direction_detection() {
     mockSys.setPinState(LIMIT_PIN, false);
 
     // 1. Simulate forward movement to increase positionChangeCounter
-    TEST_MESSAGE("Simulating forward movement to increase counter.");
+    // TEST_MESSAGE("Simulating forward movement to increase counter.");
     mockSys.setPinState(BACKWARDS_PIN, false);
     mockSys.setPinState(FORWARD_PIN, true);
     for (int i = 0; i < 50; ++i) {
@@ -127,28 +141,101 @@ void test_resistance_direction_detection() {
     }
     uint16_t initialCounter = resistanceLevelInstance->getPositionChangeCounter();
     TEST_ASSERT_TRUE_MESSAGE(initialCounter > 0, "Initial counter should be > 0");
-    // TEST_MESSAGE_INT("Initial Counter: ", initialCounter); // Removed to avoid compilation error
 
     // 2. Simulate moving backwards
-    TEST_MESSAGE("Simulating backward movement.");
+    // TEST_MESSAGE("Simulating backward movement.");
     mockSys.setPinState(BACKWARDS_PIN, true);
     mockSys.setPinState(FORWARD_PIN, false);
 
     // 3. Toggle positionPin twice (using simulate_position_change) to ensure prevDirection is updated and counter decrements
-    simulate_position_change(time); // First backward step: updates prevDirection to false
+    simulate_position_change(time); // First backward step: updates prevDirection to false (hysteresis consumes this)
     simulate_position_change(time); // Second backward step: now !wasInPositiveDirection() is true, counter decrements
 
     // 4. Assert that positionChangeCounter has decreased by 1 from the initial counter
     uint16_t counterAfterBackwardMove = resistanceLevelInstance->getPositionChangeCounter();
-    TEST_ASSERT_EQUAL_MESSAGE(initialCounter - 1, counterAfterBackwardMove, "Counter should decrease by 1 after two backward steps");
+    TEST_ASSERT_EQUAL_MESSAGE(initialCounter - 1, counterAfterBackwardMove,
+                              "Counter should decrease by 1 after two backward steps");
 }
+
+// ==========================================
+//           NEW EDGE CASE TESTS
+// ==========================================
+
+void test_resistance_dead_zone_speed() {
+    // The original logic ignores pulses that are NOT "Consistent" (<50ms) AND NOT "After Pause" (>1700ms).
+    // Pulses between 50ms and 1700ms should be ignored.
+
+    unsigned long time = 0;
+    mockSys.setMillis(time);
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true); // Forward
+
+    // 1. Initial Pulse (Startup/Pause wake)
+    time = 2000;
+    simulate_position_change(time);
+    TEST_ASSERT_EQUAL(1, resistanceLevelInstance->getPositionChangeCounter());
+
+    // 2. Pulse at 100ms (Inside Dead Zone)
+    // The helper adds 10ms, so we add 90ms to reach 100ms interval
+    time += 90;
+    simulate_position_change(time);
+
+    TEST_ASSERT_EQUAL_MESSAGE(1, resistanceLevelInstance->getPositionChangeCounter(),
+                              "Pulse at 100ms interval should be ignored");
+}
+
+void test_resistance_idle_noise() {
+    // This tests the bug where noise decrements the counter when the system should be idle.
+
+    unsigned long time = 0;
+    mockSys.setMillis(time);
+
+    // 1. Get Counter to 1
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true);
+    time = 2000;
+    simulate_position_change(time);
+    TEST_ASSERT_EQUAL(1, resistanceLevelInstance->getPositionChangeCounter());
+
+    // 2. Set IDLE state (Both Low)
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, false);
+
+    // 3. Simulate Noise (Fast pulse)
+    time += 15; // +10 in helper = 25ms interval
+    simulate_position_change(time);
+
+    TEST_ASSERT_EQUAL_MESSAGE(1, resistanceLevelInstance->getPositionChangeCounter(),
+                              "Counter changed during IDLE state");
+
+    // 4. Set INVALID state (Both High)
+    mockSys.setPinState(BACKWARDS_PIN, true);
+    mockSys.setPinState(FORWARD_PIN, true);
+
+    simulate_position_change(time);
+    TEST_ASSERT_EQUAL_MESSAGE(1, resistanceLevelInstance->getPositionChangeCounter(),
+                              "Counter changed during INVALID state");
+}
+
+
+
+
+
+
+
 
 
 int main() {
     UNITY_BEGIN();
+    // Run Original Tests
     RUN_TEST(test_resistance_initialization);
     RUN_TEST(test_resistance_limit_switch_reset);
     RUN_TEST(test_resistance_level_hysteresis);
     RUN_TEST(test_resistance_direction_detection);
+
+    // Run New Tests
+    RUN_TEST(test_resistance_dead_zone_speed);
+    RUN_TEST(test_resistance_idle_noise);
+
     return UNITY_END();
 }
