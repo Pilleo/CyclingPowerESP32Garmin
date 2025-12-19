@@ -49,6 +49,14 @@ class MyServerCallbacks final : public BLEServerCallbacks
   }
 };
 
+void BLECyclingPowerService::setup() {
+    setup_BLE_server_multiconnect_NimBLE();
+}
+
+void BLECyclingPowerService::update(uint16_t currentPower, const Cadence &cadence) {
+    loop_BLE_server_multiconnect_NimBLE(currentPower, cadence);
+}
+
 void BLECyclingPowerService::setup_BLE_server_multiconnect_NimBLE()
 
 {
