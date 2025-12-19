@@ -8,7 +8,7 @@ const uint8_t LIMIT_PIN = 18;
 const uint8_t FORWARD_PIN = 19;
 const uint8_t POSITION_PIN = 23;
 
-MockSystemWrapper mockSys;
+static MockSystemWrapper mockSys;
 ResistanceLevel *resistanceLevelInstance;
 
 void setUp(void) {
@@ -269,8 +269,215 @@ void test_limit_switch_ignored_while_forward() {
     // 4. Assert NO reset
     TEST_ASSERT_EQUAL_MESSAGE(10, resistanceLevelInstance->getPositionChangeCounter(), "Limit switch should be ignored when moving forward");
 }
+void test_backward_stability_and_hysteresis() {
+    unsigned long time = 0;
+    mockSys.setMillis(time);
+
+    // 1. BUILD MOMENTUM FORWARD (Count to 5)
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true);
+
+    // Initial pulse (Wake up)
+    time = 2000;
+    simulate_position_change(time);
+
+    // 4 more fast pulses to reach 5
+    for(int i=0; i<4; i++) {
+        time += 20; // 30ms interval (FAST)
+        simulate_position_change(time);
+    }
+    TEST_ASSERT_EQUAL(5, resistanceLevelInstance->getPositionChangeCounter());
+
+    // 2. SWITCH DIRECTION IMMEDIATELY (FORWARD -> BACKWARD)
+    // The "Hysteresis" Check: First pulse should NOT decrement.
+    // It consumes the pulse to update 'movingForward' history from True to False.
+    mockSys.setPinState(BACKWARDS_PIN, true);
+    mockSys.setPinState(FORWARD_PIN, false);
+
+    time += 20; // Fast pulse
+    simulate_position_change(time);
+
+    // If logic is correct, this stays 5. If buggy, it drops to 4.
+    TEST_ASSERT_EQUAL_MESSAGE(5, resistanceLevelInstance->getPositionChangeCounter(), "Hysteresis failed: First backward pulse should be ignored");
+
+    // 3. CONTINUOUS BACKWARD
+    // Now history is False. Next fast pulse SHOULD decrement.
+    time += 20;
+    simulate_position_change(time);
+
+    TEST_ASSERT_EQUAL_MESSAGE(4, resistanceLevelInstance->getPositionChangeCounter(), "Stability failed: Second backward pulse should decrement");
+
+    // 4. IDLE INTERRUPTION
+    // Go Idle (Both False). This sets internal history (movingForward) to False.
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, false);
+
+    // Simulate a loop cycle without pulse to flush state
+    resistanceLevelInstance->level();
+
+    // 5. RESUME BACKWARD (FAST)
+    // Since history was reset to False during idle, a fast backward pulse
+    // satisfies (!movingForward). It should decrement IMMEDIATELY.
+    mockSys.setPinState(BACKWARDS_PIN, true);
+    mockSys.setPinState(FORWARD_PIN, false);
+
+    time += 20;
+    simulate_position_change(time);
+
+    TEST_ASSERT_EQUAL_MESSAGE(3, resistanceLevelInstance->getPositionChangeCounter(), "Resume failed: Should decrement immediately after idle");
+}
+
+void test_noise_rejection_in_idle_state() {
+    unsigned long time = 0;
+    mockSys.setMillis(time);
+
+    // 1. Set up a counter value of 5
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true);
+    time = 2000;
+    simulate_position_change(time); // Pulse 1
+    for(int i=0; i<4; i++) {
+        time += 20;
+        simulate_position_change(time);
+    }
+    TEST_ASSERT_EQUAL(5, resistanceLevelInstance->getPositionChangeCounter());
+
+    // 2. Set IDLE State (Both Pins LOW)
+    // This represents the user stopping pedaling.
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, false);
+
+    // 3. Simulate NOISE (Fast pulses while Idle)
+    // In the "Buggy" logic (generic else), these are interpreted as
+    // "Not Forward" -> "Backward" -> Decrement.
+    // In the "Fixed" logic (strict else if), these are ignored.
+    time += 20;
+    simulate_position_change(time); // Noise Pulse 1
+
+    TEST_ASSERT_EQUAL_MESSAGE(5, resistanceLevelInstance->getPositionChangeCounter(), "Counter decremented on noise while IDLE");
+
+    time += 20;
+    simulate_position_change(time); // Noise Pulse 2
+    TEST_ASSERT_EQUAL_MESSAGE(5, resistanceLevelInstance->getPositionChangeCounter(), "Counter decremented on noise while IDLE");
+
+    // 4. Set INVALID State (Both Pins HIGH)
+    // This represents a short or sensor glitch.
+    mockSys.setPinState(BACKWARDS_PIN, true);
+    mockSys.setPinState(FORWARD_PIN, true);
+
+    time += 20;
+    simulate_position_change(time); // Glitch Pulse
+    TEST_ASSERT_EQUAL_MESSAGE(5, resistanceLevelInstance->getPositionChangeCounter(), "Counter decremented on INVALID sensor state");
+}
 
 
+void test_direction_switch_hysteresis() {
+    unsigned long time = 0;
+    mockSys.setMillis(time);
+
+    // 1. Move Forward (Counter = 5)
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true);
+    time = 2000;
+    simulate_position_change(time);
+    for(int i=0; i<4; i++) {
+        time += 20;
+        simulate_position_change(time);
+    }
+    TEST_ASSERT_EQUAL(5, resistanceLevelInstance->getPositionChangeCounter());
+
+    // 2. Switch Direction to BACKWARD
+    mockSys.setPinState(BACKWARDS_PIN, true);
+    mockSys.setPinState(FORWARD_PIN, false);
+
+    // 3. First Backward Pulse (Fast)
+    // Should be consumed by hysteresis (History update: True -> False)
+    time += 20;
+    simulate_position_change(time);
+    TEST_ASSERT_EQUAL_MESSAGE(5, resistanceLevelInstance->getPositionChangeCounter(), "First backward pulse should be consumed by hysteresis");
+
+    // 4. Second Backward Pulse (Fast)
+    // Should decrement (History is now False)
+    time += 20;
+    simulate_position_change(time);
+    TEST_ASSERT_EQUAL_MESSAGE(4, resistanceLevelInstance->getPositionChangeCounter(), "Second backward pulse should decrement");
+}
+
+void test_resume_after_long_pause_any_direction() {
+    unsigned long time = 0;
+    mockSys.setMillis(time);
+
+    // 1. Move Forward to 5
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true);
+    time = 2000;
+    simulate_position_change(time);
+    for(int i=0; i<4; i++) {
+        time += 20;
+        simulate_position_change(time);
+    }
+    TEST_ASSERT_EQUAL(5, resistanceLevelInstance->getPositionChangeCounter());
+
+    // 2. Long Pause (>1700ms)
+    time += 2000;
+
+    // 3. Resume BACKWARD immediately
+    // Since it's a "Long Pause", hysteresis should be bypassed or handled by isResumeAfterPause logic.
+    mockSys.setPinState(BACKWARDS_PIN, true);
+    mockSys.setPinState(FORWARD_PIN, false);
+
+    simulate_position_change(time);
+
+    // Logic: isResumeAfterPause (True) OR ...
+    // Decrement condition should pass.
+    TEST_ASSERT_EQUAL_MESSAGE(4, resistanceLevelInstance->getPositionChangeCounter(), "Should decrement immediately after long pause");
+}
+void test_strict_idle_noise_rejection() {
+    // This test ensures that when the bike is IDLE (both pins LOW),
+    // electrical noise on the position pin does NOT cause the resistance
+    // level to drop.
+    unsigned long time = 0;
+    mockSys.setMillis(time);
+
+    // 1. Setup: Move Forward to Level 1 (Counter = 10)
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true);
+
+    // Initial wake-up pulse
+    time = 2000;
+    simulate_position_change(time);
+
+    // 9 fast pulses to reach counter 10
+    for(int i=0; i<9; i++) {
+        time += 20;
+        simulate_position_change(time);
+    }
+    TEST_ASSERT_EQUAL(10, resistanceLevelInstance->getPositionChangeCounter());
+
+    // 2. Set IDLE State (Both Pins LOW)
+    // The user stops pedaling/adjusting.
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, false);
+
+    // 3. Simulate Multiple Noise Pulses
+    // In a "buggy" implementation (generic else), these would decrement the counter.
+    // In the "correct" implementation (else if isMovingBack), these must be ignored.
+
+    // Noise Pulse 1 (Updates history)
+    time += 20;
+    simulate_position_change(time);
+
+    // Noise Pulse 2 (Would decrement if buggy)
+    time += 20;
+    simulate_position_change(time);
+
+    // Noise Pulse 3 (Would decrement if buggy)
+    time += 20;
+    simulate_position_change(time);
+
+    // Assert: Counter should still be exactly 10.
+    TEST_ASSERT_EQUAL_MESSAGE(10, resistanceLevelInstance->getPositionChangeCounter(), "Counter decremented on repeated noise pulses in IDLE state");
+}
 
 int main() {
     UNITY_BEGIN();
@@ -284,5 +491,14 @@ int main() {
     RUN_TEST(test_resistance_gap_latching);
     RUN_TEST(test_resistance_exact_timing_boundaries);
     RUN_TEST(test_limit_switch_ignored_while_forward);
+
+    RUN_TEST(test_backward_stability_and_hysteresis);
+    RUN_TEST(test_noise_rejection_in_idle_state);
+    RUN_TEST(test_strict_idle_noise_rejection);
+    RUN_TEST(test_direction_switch_hysteresis);
+    RUN_TEST(test_resume_after_long_pause_any_direction);
+
+
+
     return UNITY_END();
 }
