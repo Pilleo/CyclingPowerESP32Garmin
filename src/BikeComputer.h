@@ -32,7 +32,7 @@ public:
         _sys.digitalWrite(ledPin, 0); // Initialize LED state if needed, though pinMode is usually setup
         // Note: pinMode is typically Arduino specific and might need abstraction if strictly testing logic
         // For now, assuming setup() in main handles hardware init like Serial and pinMode
-        _bleService.setup();
+        _bleService.start();
     }
 
     void update() {
@@ -67,7 +67,7 @@ public:
         {
             if (cad >= 0)
             {
-                _bleService.update(currentPower, _cadence);
+                _bleService.updateData(currentPower, _cadence.totalRevs(), _cadence.getGattLastCrankRevolutionTimestamp());
                 lastDataSentTimestamp = ms;
             }
             else

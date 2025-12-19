@@ -49,12 +49,40 @@ class MyServerCallbacks final : public BLEServerCallbacks
   }
 };
 
-void BLECyclingPowerService::setup() {
+void BLECyclingPowerService::start() {
     setup_BLE_server_multiconnect_NimBLE();
 }
 
-void BLECyclingPowerService::update(uint16_t currentPower, const Cadence &cadence) {
-    loop_BLE_server_multiconnect_NimBLE(currentPower, cadence);
+void BLECyclingPowerService::updateData(uint16_t power, uint32_t revs, uint16_t timestamp) {
+    // notify changed value
+    if (deviceConnected)
+    {
+        uint8_t payload[20];
+        size_t const generated_packet_size = BlePacketGenerator::generatePacket(power, revs, timestamp, payload);
+        pCharacteristic->setValue(payload, generated_packet_size);
+        pCharacteristic->notify();
+
+        pCharacteristicBatteryLevel->setValue(79);
+        pCharacteristicBatteryLevel->notify();
+    }
+
+    // disconnecting
+    if (!deviceConnected && oldDeviceConnected)
+    {
+        powerServer->startAdvertising(); // restart advertising
+        oldDeviceConnected = deviceConnected;
+    }
+
+    // connecting
+    if (deviceConnected && !oldDeviceConnected)
+    {
+        // do stuff here on connecting
+        oldDeviceConnected = deviceConnected;
+    }
+}
+
+bool BLECyclingPowerService::isConnected() {
+    return deviceConnected;
 }
 
 void BLECyclingPowerService::setup_BLE_server_multiconnect_NimBLE()
@@ -118,38 +146,20 @@ void BLECyclingPowerService::setup_BLE_server_multiconnect_NimBLE()
 void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(const uint16_t currentPower, const Cadence &cadence)
 
 {
+    // Delegate to the new instance method
+    // Note: This static method is tricky because it doesn't have access to an instance.
+    // However, since the underlying NimBLE variables are static/global in this file,
+    // we can just call the logic directly or create a temporary instance if needed,
+    // but better to just duplicate the logic or refactor the static variables.
 
-  // notify changed value
+    // For now, let's just use the same logic as updateData but extracting from cadence object
+
+      // notify changed value
 
   if (deviceConnected)
 
   {
-
-    // float speed = ((float)freq.cadence() * 60) / 163.9;
-
-    // Serial.print("speed ");
-
-    // Serial.println(speed);
-
-    // Serial.print("speed 2 ");
-
-    // Serial.println(6.15 * freq.cadence() * 60 / 1000);
-
-    // Serial.print("total strokes ");
-
-    // Serial.println(freq.totalRevs());
-
-    // Serial.print("total m ");
-
-    // Serial.println(freq.totalRevs() * 6.15);
-
-    // 160 strokes = 1km
-
-    // call this frequently
-
      uint32_t total_revs = cadence.totalRevs();
-
-    // Serial.println(freq.getGattLastCrankRevolutionTimestamp());
 
     uint8_t payload[20];
     size_t const generated_packet_size = BlePacketGenerator::generatePacket(currentPower, total_revs, cadence.getGattLastCrankRevolutionTimestamp(), payload);
