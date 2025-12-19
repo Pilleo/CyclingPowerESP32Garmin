@@ -32,9 +32,9 @@ public:
      * @param buffer Output buffer (must be at least 14 bytes)
      * @return size_t Number of bytes written
      */
-    static auto generatePacket(uint16_t powerWatts,
-                                 uint32_t totalCrankRevs, 
-                                 uint16_t lastCrankTime, 
+    static auto generatePacket(const uint16_t powerWatts,
+                                 const uint32_t totalCrankRevs,
+                                 const uint16_t lastCrankTime,
                                  uint8_t* buffer) -> size_t
     {
         // 1. Prepare the Fixed Structure

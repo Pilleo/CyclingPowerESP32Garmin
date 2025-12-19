@@ -45,22 +45,22 @@ void loop()
   // Serial.println(incomingRPM, DEC);
 
   int const timeFrameForBlink = 60000 / incomingRPM;
-  long const start = millis();
+  long const start = sys.millis();
 
   if (start - lastBlink >= timeFrameForBlink)
   {
     // Serial.println("time slot: ");
     // Serial.print(timeFrameForBlink);
-    digitalWrite(27, LOW);
+    sys.digitalWrite(27, LOW);
     lastBlink = start;
   }
 
   else if (start - lastBlink >= 1)
   {
-    digitalWrite(27, HIGH);
+    sys.digitalWrite(27, HIGH);
   }
 
-  const unsigned long ms = millis();
+  const unsigned long ms = sys.millis();
   const uint8_t l = lvl.level();
   if (lastLevel != l)
   {
@@ -75,7 +75,7 @@ void loop()
 
   const unsigned long periodSinceLastTransaction = ms - lastDataSentTimestamp;
 
-  int timePerioudForSendingData = 900;
+  int timePerioudForSendingData = 510;
 
   if (periodSinceLastTransaction >= timePerioudForSendingData)
   {
@@ -93,9 +93,8 @@ void loop()
       Serial.println("nothing to sent, rpm is -1");
       Serial.println(cad);
       // deviceConnected = false;
-      const bool cadenceState = digitalRead(GPIO_NUM_15) != 0;
-      esp_sleep_enable_ext0_wakeup(GPIO_NUM_15, static_cast<int>(!cadenceState));
-      esp_deep_sleep_start();
+      const bool cadenceState = sys.digitalRead(GPIO_NUM_15) != 0;
+      sys.enterDeepSleep(GPIO_NUM_15, static_cast<int>(!cadenceState));
     }
   }
 }

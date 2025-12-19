@@ -5,7 +5,7 @@
 
 class MockSystemWrapper : public ISystemWrapper {
 public:
-    MockSystemWrapper() : currentTime(0), pinState(true) {}
+    MockSystemWrapper() : currentTime(0), pinState(true), wasSleepCalled(false), sleepWakeupPin(0), sleepWakeupLevel(0) {}
 
     void setMillis(unsigned long newTime) {
         currentTime = newTime;
@@ -23,6 +23,20 @@ public:
     int digitalRead(uint8_t pin) override {
         return pinState;
     }
+
+    void digitalWrite(uint8_t pin, int val) override {
+        // No-op for now, or store if needed for verification
+    }
+
+    void enterDeepSleep(uint8_t wakeupPin, int wakeupLevel) override {
+        wasSleepCalled = true;
+        sleepWakeupPin = wakeupPin;
+        sleepWakeupLevel = wakeupLevel;
+    }
+
+    bool wasSleepCalled;
+    uint8_t sleepWakeupPin;
+    int sleepWakeupLevel;
 
 private: // Declare member variables here
     unsigned long currentTime;
