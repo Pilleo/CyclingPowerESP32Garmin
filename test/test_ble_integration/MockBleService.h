@@ -11,6 +11,7 @@ public:
     bool notifyCalled = false;
     bool startCalled = false;
     bool connected = false;
+    int callCount = 0;
 
     void start() override {
         startCalled = true;
@@ -21,6 +22,7 @@ public:
         lastRevsSent = revs;
         lastTimestampSent = timestamp;
         notifyCalled = true;
+        callCount++;
     }
 
     bool isConnected() override {
