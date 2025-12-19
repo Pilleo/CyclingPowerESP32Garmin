@@ -10,6 +10,7 @@
 #include <Power.h>
 #include "SystemWrapper.h"
 #include "BikeComputer.h"
+#include "NimBleStackAdapter.h"
 
 static constexpr uint8_t backwordsPin = 4;
 static constexpr uint8_t limitPin = 18;
@@ -19,8 +20,10 @@ static constexpr uint8_t positionPin = 23;
 static ArduinoSystemWrapper sys;
 static ResistanceLevel lvl(backwordsPin, limitPin, positionPin, forwardPin, sys);
 static Cadence freq(15, sys);
-static BLECyclingPowerService bleService;
-static BikeComputer computer(sys, freq, lvl, bleService);
+static NimBleStackAdapter bleAdapter;
+static BLECyclingPowerService bleService(bleAdapter);
+static BikeComputerConfig config = {27, 15};
+static BikeComputer computer(sys, freq, lvl, bleService, config);
 
 void setup()
 {

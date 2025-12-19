@@ -10,19 +10,32 @@
 #endif
 #include "Cadence.h"
 #include "IBleService.h"
+#include "IBleStackAdapter.h"
 
+class BLECyclingPowerService : public IBleService, public IBleStackAdapter::Callbacks {
+    IBleStackAdapter& _bleStack;
 
-class BLECyclingPowerService : public IBleService {
+    IBleStackAdapter::CharHandle _hPowerMeas = nullptr;
+    IBleStackAdapter::CharHandle _hFeature = nullptr;
+    IBleStackAdapter::CharHandle _hSensorLoc = nullptr;
+    IBleStackAdapter::CharHandle _hBattery = nullptr;
+
+    bool _deviceConnected = false;
+    bool _oldDeviceConnected = false;
+
 public:
+    explicit BLECyclingPowerService(IBleStackAdapter& bleStack);
+
     void start() override;
     void updateData(uint16_t power, uint32_t revs, uint16_t timestamp) override;
     bool isConnected() override;
 
-    // Keep static for backward compatibility if needed, or refactor completely
-    static void loop_BLE_server_multiconnect_NimBLE( uint16_t  currentPower, const Cadence &cadence);
-    static void setup_BLE_server_multiconnect_NimBLE();
+    // IBleStackAdapter::Callbacks implementation
+    void onConnect() override;
+    void onDisconnect() override;
+
+    // Deprecated static methods removed or kept as wrappers if absolutely necessary
+    // For now, removing them to enforce new architecture.
 };
-
-
 
 #endif //BLEPOWERSERVICE_H
