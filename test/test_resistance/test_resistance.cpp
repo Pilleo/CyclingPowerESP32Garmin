@@ -478,7 +478,94 @@ void test_strict_idle_noise_rejection() {
     // Assert: Counter should still be exactly 10.
     TEST_ASSERT_EQUAL_MESSAGE(10, resistanceLevelInstance->getPositionChangeCounter(), "Counter decremented on repeated noise pulses in IDLE state");
 }
+/**
+ * Test 3.3.1: Invalid Hardware State (Short Circuit)
+ * Simulates a hardware fault where both Forward and Backward pins are HIGH.
+ * The logic should handle this gracefully (likely by doing nothing).
+ */
+void test_resistance_invalid_hardware_state() {
+    // Setup stable state
+    unsigned long time = 1000;
+    mockSys.setMillis(time);
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true);
 
+    // Pulse once to ensure we are "moving forward"
+    simulate_position_change(time);
+    uint16_t initialCounter = resistanceLevelInstance->getPositionChangeCounter();
+
+    // Enter Invalid State: Both HIGH
+    mockSys.setPinState(BACKWARDS_PIN, true);
+    mockSys.setPinState(FORWARD_PIN, true);
+
+    // Trigger position pulse
+    simulate_position_change(time);
+
+    // Expectation:
+    // Logic: isMovingBack = (Back && !For) = (1 && 0) = 0
+    // Logic: isMovingFor  = (For && !Back) = (1 && 0) = 0
+    // Neither condition is met. Counter should remain unchanged.
+    TEST_ASSERT_EQUAL_MESSAGE(initialCounter, resistanceLevelInstance->getPositionChangeCounter(), "Counter changed during invalid hardware state (Both HIGH)");
+}
+
+/**
+ * Test 3.3.2: Counter Overflow
+ * Verifies behavior when the 16-bit position counter wraps around 65535.
+ * This helps decide if we need to reset the system or if wrapping is benign.
+ */
+void test_resistance_counter_overflow() {
+    unsigned long time = 0;
+    mockSys.setMillis(time);
+
+    // Setup Forward movement
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true);
+
+    // We can't loop 65000 times in a unit test easily without taking too long?
+    // It's just memory updates, it's fast.
+
+    // 1. Manually hack the internal state if possible?
+    // Since we can't access private members easily without friend classes,
+    // we will rely on the fact that ResistanceLevel starts at 0 (or restored).
+    // Actually, we can just instantiate a fresh one.
+
+    // But to save time, we can assume it starts near 0.
+    // We need to inject 65536 pulses.
+    // Let's do a loop. Native test is fast.
+
+    uint16_t target = 65535;
+
+    // Note: This loop assumes the logic simply increments.
+    // We must ensure time advances enough to pass debounce (8ms).
+    // simulate_position_change adds 10ms.
+
+    // This is technically an integration test of the overflow behavior.
+    // We expect it to wrap to 0.
+
+    // NOTE: This test might take a second to run.
+    int limit = 66000;
+    uint16_t lastCounter = 0;
+    bool wrapped = false;
+
+    for(int i=0; i < limit; i++) {
+        simulate_position_change(time);
+        uint16_t c = resistanceLevelInstance->getPositionChangeCounter();
+
+        if (c < lastCounter) {
+            wrapped = true;
+            break;
+        }
+        lastCounter = c;
+    }
+
+    TEST_ASSERT_TRUE_MESSAGE(wrapped, "Counter did not wrap around 65535");
+
+    // Verify it wraps to 0 or 1
+    // 65535 + 1 = 0 (uint16_t)
+    // If logic is `positionChangeCounter++`, it becomes 0.
+    // Check level at 0. Level ranges say {0, 29, 1}. So it should be Level 1.
+    TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
+}
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_resistance_initialization);
@@ -497,6 +584,8 @@ int main() {
     RUN_TEST(test_strict_idle_noise_rejection);
     RUN_TEST(test_direction_switch_hysteresis);
     RUN_TEST(test_resume_after_long_pause_any_direction);
+    RUN_TEST(test_resistance_invalid_hardware_state);
+    RUN_TEST(test_resistance_counter_overflow);
 
 
 

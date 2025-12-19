@@ -130,7 +130,45 @@ void test_power_interpolation_parametrized()
         TEST_ASSERT_EQUAL_UINT16_MESSAGE(testCases[i].expectedPower, actualPower, testCases[i].message);
     }
 }
+/**
+ * Test 3.2.1: Resistance Level Bounds Safety
+ * Verifies that invalid resistance levels (0 or >16) are clamped or handled safely
+ * to prevent array out-of-bounds access.
+ */
+void test_power_level_bounds_safety() {
+    float standardCadence = 90.0f;
 
+    // Case A: Level 0
+    // Current logic: (resistanceLevel > 0 && resistanceLevel <= 16) ? (resistanceLevel - 1) : 0;
+    // So Level 0 maps to Level 1 (Index 0).
+    uint16_t powerAtLevel0 = Power::power(0, standardCadence);
+    uint16_t powerAtLevel1 = Power::power(1, standardCadence);
+    TEST_ASSERT_EQUAL_MESSAGE(powerAtLevel1, powerAtLevel0, "Level 0 should map to Level 1 safety defaults");
+
+    // Case B: Level 17 (Out of bounds)
+    // Logic: Clamps to Index 0 (Level 1) due to the ternary check failing?
+    // Check code: `(resistanceLevel > 0 && resistanceLevel <= 16) ? ... : 0;`
+    // Yes, invalid levels default to Index 0 (Level 1).
+    uint16_t powerAtLevel17 = Power::power(17, standardCadence);
+    TEST_ASSERT_EQUAL_MESSAGE(powerAtLevel1, powerAtLevel17, "Level 17 should map to Level 1 safety defaults");
+
+    // Case C: Max Byte (255)
+    uint16_t powerAtMax = Power::power(255, standardCadence);
+    TEST_ASSERT_EQUAL(powerAtLevel1, powerAtMax);
+}
+
+/**
+ * Test 3.2.2: Negative Cadence Input
+ * Ensures that negative float values for cadence don't cause crashes or wild values.
+ */
+void test_power_negative_cadence() {
+    float negCadence = -50.0f;
+
+    // Code logic check: `if (cadence < 10.0F) return 0;`
+    // -50 is < 10, so it should return 0.
+    uint16_t power = Power::power(5, negCadence);
+    TEST_ASSERT_EQUAL(0, power);
+}
 int main()
 {
     UNITY_BEGIN();
@@ -141,5 +179,8 @@ int main()
     RUN_TEST(test_power_inter_cadence_discretization);
     RUN_TEST(test_power_parametrized);
     RUN_TEST(test_power_interpolation_parametrized);
+    RUN_TEST(test_power_level_bounds_safety);
+    RUN_TEST(test_power_negative_cadence);
+
     return UNITY_END();
 }

@@ -18,7 +18,6 @@ public:
     auto totalRevs() const -> uint32_t;
 
 private:
-    auto calculateCoastingRpm(uint32_t intervalTime) -> float;
 
     ISystemWrapper& sys;
     const uint8_t pin;

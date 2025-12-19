@@ -513,11 +513,11 @@ void test_cadence_millis_wraparound() {
     // Note: Due to integer math in code, 2000ms might be slightly fuzzy,
     // but calculation is 60000 / 2000 = 30.
     TEST_ASSERT_EQUAL_FLOAT(30.0f, cadenceInstance->cadence());
-} /**
- * Test 3.1.2: Coasting Decay Logic (FIXED EXPECTATIONS)
- * We have fixed the logic shadowing. Now we expect:
- * > 2x gap -> divide by 2
- * > 3x gap -> divide by 3 (Previously failed here)
+}
+/**
+ * Test 3.1.2: Coasting Decay Logic (NATURAL DECAY)
+ * The previous logic artificially divided RPM by 2, 3, etc. causing sudden drops.
+ * We now expect "Natural Decay": RPM = 60000 / CurrentInterval.
  */
 void test_cadence_coasting_decay_logic() {
     // 1. Establish steady 60 RPM (1000ms interval)
@@ -527,43 +527,38 @@ void test_cadence_coasting_decay_logic() {
 
     // Pulse at 1000ms
     mockSys.setMillis(1000);
-    mockSys.setPinState(false);
-    cadenceInstance->cadence();
-    // Debounce wait
+    mockSys.setPinState(false); cadenceInstance->cadence();
     mockSys.setMillis(1350);
-    mockSys.setPinState(true);
-    cadenceInstance->cadence();
+    mockSys.setPinState(true); cadenceInstance->cadence();
 
     // Pulse at 2000ms
     mockSys.setMillis(2000);
-    mockSys.setPinState(false);
-    cadenceInstance->cadence();
+    mockSys.setPinState(false); cadenceInstance->cadence();
     mockSys.setMillis(2350);
-    mockSys.setPinState(true);
-    cadenceInstance->cadence();
+    mockSys.setPinState(true); cadenceInstance->cadence();
 
     TEST_ASSERT_EQUAL_FLOAT(60.0f, cadenceInstance->cadence());
 
-    // 2. Simulate Coasting
+    // 2. Simulate Coasting (No pulses)
 
-    // Case A: Small gap (Interval 1500ms)
-    // 1500 < 2*1000. Standard: 60000 / 1500 = 40 RPM.
+    // Case A: Interval 1500ms (1.5x gap)
+    // Formula: 60000 / 1500 = 40 RPM
     mockSys.setMillis(3500);
     TEST_ASSERT_EQUAL_FLOAT(40.0f, cadenceInstance->cadence());
 
-    // Case B: > 2x Gap (Interval 2100ms)
-    // Logic: calculate(1, interval * 2) -> 60000 / 4200 = 14.28 RPM
+    // Case B: Interval 2100ms (2.1x gap)
+    // PREVIOUS BUGGY LOGIC: Would divide by 2 extra -> ~14 RPM
+    // NEW LOGIC: 60000 / 2100 = 28.57 RPM
     mockSys.setMillis(4100);
     float val_2x = cadenceInstance->cadence();
-    TEST_ASSERT_FLOAT_WITHIN(0.1f, 14.28f, val_2x);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 28.57f, val_2x);
 
-    // Case C: > 3x Gap (Interval 3100ms)
-    // NOW FIXED: Should hit the *3 block.
-    // Logic: calculate(1, interval * 3) -> 60000 / 9300 = 6.45 RPM
-    // (Old buggy value was 9.67)
+    // Case C: Interval 3100ms (3.1x gap)
+    // PREVIOUS BUGGY LOGIC: Would divide by 3 extra -> ~6 RPM
+    // NEW LOGIC: 60000 / 3100 = 19.35 RPM
     mockSys.setMillis(5100);
     float val_3x = cadenceInstance->cadence();
-    TEST_ASSERT_FLOAT_WITHIN(0.1f, 6.45f, val_3x);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 19.35f, val_3x);
 }
 
 /**

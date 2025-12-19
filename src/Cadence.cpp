@@ -37,48 +37,15 @@ static auto calculateRpmFromRevolutions(const uint8_t revolutions, const uint32_
     return instantaneousRpm;
 }
 
-auto Cadence::calculateCoastingRpm(const uint32_t intervalTime) -> float 
-{
-    // Fix: Check largest multipliers first to avoid shadowing
-    // e.g., if > 6x, it is also > 2x. Checking 2x first hides the 6x case.
-    
-    if (intervalTime > lastIntervalTime * 6)
-    {
-        return calculateRpmFromRevolutions(1, intervalTime * 6);
-    }
-    if (intervalTime > lastIntervalTime * 5)
-    {
-        return calculateRpmFromRevolutions(1, intervalTime * 5);
-    }
-    if (intervalTime > lastIntervalTime * 4)
-    {
-        return calculateRpmFromRevolutions(1, intervalTime * 4);
-    }
-    if (intervalTime > lastIntervalTime * 3)
-    {
-        return calculateRpmFromRevolutions(1, intervalTime * 3);
-    }
-    if (intervalTime > lastIntervalTime * 2)
-    {
-        return calculateRpmFromRevolutions(1, intervalTime * 2);
-    }
-    
-    // Default decay
-    return calculateRpmFromRevolutions(1, intervalTime);
-}
 
 auto Cadence::cadence() -> float
 {
     const uint32_t mls = sys.millis();
-    
-    // Unsigned arithmetic handles overflow correctly if types match
     const uint32_t sampleTime = mls - elapsedSampleTimeStamp;
 
     if (sampleTime > MIN_DELAY_BETWEEN_FULL_ROTATION_MS)
     {
         bool const currentState = sys.digitalRead(pin) != 0;
-
-        // Falling Edge Detection (High -> Low)
         if (oldState == true && currentState == false)
         {
             rev++;
@@ -94,7 +61,7 @@ auto Cadence::cadence() -> float
     {
         if (rev == 0)
         {
-            // Timeout logic
+            // Timeout: 5 seconds with no pedaling = 0 RPM
             if (intervalTime > MAX_IDLE_TIMEOUT_MS)
             {
                 rpm = 0.0F;
@@ -105,22 +72,22 @@ auto Cadence::cadence() -> float
                 return rpm;
             }
 
-            // Coasting / Forecasting logic
-            if (rpm > 0 && lastIntervalTime > 0 && intervalTime > lastIntervalTime) 
+            // Coasting Logic (Natural Decay)
+            // If we have valid history, and the current gap is longer than the last,
+            // calculate the "Virtual RPM" based on this growing gap.
+            if (rpm > 0 && lastIntervalTime > 0 && intervalTime > lastIntervalTime)
             {
-                rpm = calculateCoastingRpm(intervalTime);
+                // Simple Natural Decay: RPM = 60000 / CurrentWaitingDuration
+                rpm = calculateRpmFromRevolutions(1, intervalTime);
             }
         }
         else
         {
-            // Valid revolution(s) detected
+            // Valid revolution detected
             rpm = calculateRpmFromRevolutions(rev, intervalTime);
             rev = 0;
             elapsedTimestamp = mls;
             lastIntervalTime = intervalTime;
-            
-            // GATT Timestamp: 1/1024th of a second
-            // Modulo 65536 is automatic for uint16_t, but explicit is fine
             gattLastCrankRevolutionTimestamp = (gattLastCrankRevolutionTimestamp +
                                                 static_cast<uint16_t>((intervalTime / 1000.F) * 1024.F));
         }
