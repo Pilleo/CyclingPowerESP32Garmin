@@ -9,16 +9,16 @@
 
 class ISystemWrapper {
 public:
-
-    virtual auto millis() -> unsigned long = 0;
+    // Enforce 32-bit time to match ESP32 and native tests
+    virtual auto millis() -> uint32_t = 0;
     virtual auto digitalRead(uint8_t pin) -> int = 0;
 };
 
 #ifndef NATIVE_TEST
 class ArduinoSystemWrapper : public ISystemWrapper {
 public:
-    auto millis() -> unsigned long override {
-        return ::millis();
+    auto millis() -> uint32_t override {
+        return static_cast<uint32_t>(::millis());
     }
 
     auto digitalRead(const uint8_t pin) -> int override {

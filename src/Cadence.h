@@ -18,17 +18,26 @@ public:
     auto totalRevs() const -> uint32_t;
 
 private:
+    auto calculateCoastingRpm(uint32_t intervalTime) -> float;
+
     ISystemWrapper& sys;
     const uint8_t pin;
     float rpm = 0;
-    int16_t debouncingCounter = 0;
+    
     uint32_t lastIntervalTime = 0;
     bool oldState;
-    unsigned long elapsedTimestamp = 0;
-    unsigned long elapsedSampleTimeStamp = 0;
+    
+    // Explicit 32-bit types for consistent overflow behavior
+    uint32_t elapsedTimestamp = 0;
+    uint32_t elapsedSampleTimeStamp = 0;
+    
     uint8_t rev = 0;
     uint32_t totalRev = 0;
     uint16_t gattLastCrankRevolutionTimestamp = 0;
+
+    static constexpr uint32_t MIN_DELAY_BETWEEN_FULL_ROTATION_MS = 330;
+    static constexpr uint32_t MAX_IDLE_TIMEOUT_MS = 5000;
+    static constexpr uint32_t DEEP_SLEEP_TIMEOUT_MS = 60000 * 15;
 };
 
 #endif //CADENCE_H

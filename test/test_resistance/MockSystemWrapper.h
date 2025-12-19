@@ -17,8 +17,7 @@ public:
         pinStates[pin] = state;
     }
 
-    // ISystemWrapper interface
-    unsigned long millis() override {
+    uint32_t millis() override {
         return currentTime;
     }
 

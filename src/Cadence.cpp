@@ -15,10 +15,11 @@ auto Cadence::lastTimestamp() const -> uint32_t
     return elapsedTimestamp;
 }
 
-Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) : pin(pinn), sys(sys)
+Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) : sys(sys), pin(pinn)
 {
-    // pinMode(pin, INPUT_PULLUP); // This should be handled by the system wrapper
+    // Initialize state to avoid startup glitches
     oldState = (sys.digitalRead(pin) != 0);
+    
     elapsedTimestamp = 0;
     elapsedSampleTimeStamp = 0;
     rev = 0;
@@ -26,26 +27,59 @@ Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) : pin(pinn), sys(sys)
     gattLastCrankRevolutionTimestamp = 0;
 }
 
-static auto calculateRpmFromRevolutions(const uint8_t revolutions, const unsigned long revolutionsTime) -> float
+static auto calculateRpmFromRevolutions(const uint8_t revolutions, const uint32_t revolutionsTime) -> float
 {
     if (revolutionsTime == 0) {
         return 0.0F;
     }
+    // 60,000 ms in a minute
     const float instantaneousRpm = 60000.0F / (static_cast<float>(revolutionsTime) / static_cast<float>(revolutions));
     return instantaneousRpm;
 }
 
+auto Cadence::calculateCoastingRpm(const uint32_t intervalTime) -> float 
+{
+    // Fix: Check largest multipliers first to avoid shadowing
+    // e.g., if > 6x, it is also > 2x. Checking 2x first hides the 6x case.
+    
+    if (intervalTime > lastIntervalTime * 6)
+    {
+        return calculateRpmFromRevolutions(1, intervalTime * 6);
+    }
+    if (intervalTime > lastIntervalTime * 5)
+    {
+        return calculateRpmFromRevolutions(1, intervalTime * 5);
+    }
+    if (intervalTime > lastIntervalTime * 4)
+    {
+        return calculateRpmFromRevolutions(1, intervalTime * 4);
+    }
+    if (intervalTime > lastIntervalTime * 3)
+    {
+        return calculateRpmFromRevolutions(1, intervalTime * 3);
+    }
+    if (intervalTime > lastIntervalTime * 2)
+    {
+        return calculateRpmFromRevolutions(1, intervalTime * 2);
+    }
+    
+    // Default decay
+    return calculateRpmFromRevolutions(1, intervalTime);
+}
+
 auto Cadence::cadence() -> float
 {
-    const unsigned long mls = sys.millis();
-    const unsigned long sampleTime = mls - elapsedSampleTimeStamp;
+    const uint32_t mls = sys.millis();
+    
+    // Unsigned arithmetic handles overflow correctly if types match
+    const uint32_t sampleTime = mls - elapsedSampleTimeStamp;
 
-    constexpr int minDelayBetweenFullRotation = 330;
-    if (sampleTime > minDelayBetweenFullRotation)
+    if (sampleTime > MIN_DELAY_BETWEEN_FULL_ROTATION_MS)
     {
         bool const currentState = sys.digitalRead(pin) != 0;
 
-        if (static_cast<int>(oldState) == 1 && static_cast<int>(currentState) == 0)
+        // Falling Edge Detection (High -> Low)
+        if (oldState == true && currentState == false)
         {
             rev++;
             totalRev++;
@@ -54,61 +88,41 @@ auto Cadence::cadence() -> float
         oldState = currentState;
     }
 
-    const unsigned long intervalTime = mls - elapsedTimestamp;
+    const uint32_t intervalTime = mls - elapsedTimestamp;
 
-    if (intervalTime > minDelayBetweenFullRotation)
+    if (intervalTime > MIN_DELAY_BETWEEN_FULL_ROTATION_MS)
     {
         if (rev == 0)
         {
-            if (intervalTime > 5000)
+            // Timeout logic
+            if (intervalTime > MAX_IDLE_TIMEOUT_MS)
             {
                 rpm = 0.0F;
-                if (intervalTime > 60000 * 15)
+                if (intervalTime > DEEP_SLEEP_TIMEOUT_MS)
                 {
                     rpm = -1.0F;
                 }
                 return rpm;
             }
 
-            if (rpm > 0 && intervalTime > lastIntervalTime) // rpm forecast
+            // Coasting / Forecasting logic
+            if (rpm > 0 && lastIntervalTime > 0 && intervalTime > lastIntervalTime) 
             {
-
-                if (intervalTime > lastIntervalTime * 2)
-                {
-                    rpm = calculateRpmFromRevolutions(1, intervalTime * 2);
-                }
-                else if (intervalTime > lastIntervalTime * 3)
-                {
-                    rpm = calculateRpmFromRevolutions(1, intervalTime * 3);
-                }
-                else if (intervalTime > lastIntervalTime * 4)
-                {
-                    rpm = calculateRpmFromRevolutions(1, intervalTime * 4);
-                }
-                else if (intervalTime > lastIntervalTime * 5)
-                {
-                    rpm = calculateRpmFromRevolutions(1, intervalTime * 5);
-                }
-                else if (intervalTime > lastIntervalTime * 6)
-                {
-                    rpm = calculateRpmFromRevolutions(1, intervalTime * 6);
-                }
-                else
-                {
-                    rpm = calculateRpmFromRevolutions(1, intervalTime);
-                }
+                rpm = calculateCoastingRpm(intervalTime);
             }
         }
         else
         {
+            // Valid revolution(s) detected
             rpm = calculateRpmFromRevolutions(rev, intervalTime);
             rev = 0;
             elapsedTimestamp = mls;
             lastIntervalTime = intervalTime;
+            
+            // GATT Timestamp: 1/1024th of a second
+            // Modulo 65536 is automatic for uint16_t, but explicit is fine
             gattLastCrankRevolutionTimestamp = (gattLastCrankRevolutionTimestamp +
-                                                // static_cast<uint16_t>(intervalTime * 1.024);
-                                                static_cast<uint16_t>((intervalTime / 1000.F) * 1024.F)) %
-                                               65536;
+                                                static_cast<uint16_t>((intervalTime / 1000.F) * 1024.F));
         }
     }
 
