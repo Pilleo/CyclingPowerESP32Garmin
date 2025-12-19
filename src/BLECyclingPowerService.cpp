@@ -13,6 +13,8 @@
 
 #include <NimBLEDevice.h>
 
+#include "BlePacketGenerator.h"
+
 static constexpr uint16_t BATTERY_SERVICE_UUID = 0x180F;
 
 BLEServer *powerServer = nullptr;
@@ -25,25 +27,7 @@ static bool deviceConnected = false;
 
 static bool oldDeviceConnected = false;
 
-static struct __attribute__((__packed__)) CPSMeasurement_t
 
-{
-
-  uint16_t flags;
-
-  uint16_t power; // W
-
-  uint32_t wheel_revs;
-
-  uint16_t wheel_rev_timestamp; // 1/2048 s
-
-  uint16_t crank_revs;
-
-  uint16_t crank_rev_timestamp; // 1/1024 s
-
-  // uint16_t energy; // kJ
-
-} CPSMeasurement;
 
 class MyServerCallbacks final : public BLEServerCallbacks
 
@@ -83,7 +67,6 @@ void BLECyclingPowerService::setup_BLE_server_multiconnect_NimBLE()
 
                                                    NIMBLE_PROPERTY::NOTIFY);
 
-  CPSMeasurement.flags = (CPM_WHEEL_REV_DATA_PRESENT | CPM_CRANK_REV_DATA_PRESENT);
 
   BLECharacteristic *pCharCPSFeature = pService->createCharacteristic(NimBLEUUID(CYCLING_POWER_FEATURE_CHAR_UUID),
 
@@ -156,22 +139,13 @@ void BLECyclingPowerService::loop_BLE_server_multiconnect_NimBLE(const uint16_t 
 
     // call this frequently
 
-    CPSMeasurement.flags = (CPM_WHEEL_REV_DATA_PRESENT | CPM_CRANK_REV_DATA_PRESENT);
-
-    CPSMeasurement.power = currentPower;
-
-    CPSMeasurement.wheel_revs = (cadence.totalRevs() * 31);
-
-    CPSMeasurement.wheel_rev_timestamp = (cadence.getGattLastCrankRevolutionTimestamp() * 2) % 65536;
-
-    CPSMeasurement.crank_revs = cadence.totalRevs();
-
-    CPSMeasurement.crank_rev_timestamp = cadence.getGattLastCrankRevolutionTimestamp();
+     uint32_t total_revs = cadence.totalRevs();
 
     // Serial.println(freq.getGattLastCrankRevolutionTimestamp());
 
-    pCharacteristic->setValue(reinterpret_cast<uint8_t *>(&CPSMeasurement), sizeof(CPSMeasurement));
-
+    uint8_t payload[20];
+    size_t const generated_packet_size = BlePacketGenerator::generatePacket(currentPower, total_revs, cadence.getGattLastCrankRevolutionTimestamp(), payload);
+    pCharacteristic->setValue(payload, generated_packet_size);
     pCharacteristic->notify();
 
     pCharacteristicBatteryLevel->setValue(79);
