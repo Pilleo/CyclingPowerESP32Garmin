@@ -17,7 +17,24 @@ public:
     }
 
     void setPinState(uint8_t pin, bool state) {
-        pinStates[pin] = state;
+        if (_interrupts.count(pin)) { // Existing ISR simulation logic
+            auto& handler = _interrupts[pin];
+            isr_t isr = handler.first;
+            int mode = handler.second;
+            bool oldState = pinStates.count(pin) ? pinStates[pin] : false; // Default to false if not set
+            pinStates[pin] = state;
+
+            bool trigger = false;
+            if (mode == CHANGE && state != oldState) trigger = true;
+            if (mode == RISING && !oldState && state) trigger = true;
+            if (mode == FALLING && oldState && !state) trigger = true;
+
+            if (trigger && isr) {
+                isr(); // Trigger the ISR
+            }
+        } else {
+            pinStates[pin] = state;
+        }
     }
 
     // ISystemWrapper interface
@@ -36,15 +53,21 @@ public:
         // No-op for now, or store if needed for verification
     }
 
-    void enterDeepSleep(uint8_t wakeupPin, int wakeupLevel) override {
+    void enterDeepSleep(uint8_t pin, int level) override {
         wasSleepCalled = true;
-        sleepWakeupPin = wakeupPin;
-        sleepWakeupLevel = wakeupLevel;
+        sleepWakeupPin = pin;
+        sleepWakeupLevel = level;
     }
 
+    // Existing interrupt handler storage for testing
+    std::map<uint8_t, std::pair<isr_t, int>> _interrupts; // Made public for easier test setup in future
     void attachInterrupt(uint8_t pin, isr_t isr, int mode) override {
-        // No-op for now, can be expanded to store ISRs for testing
+        _interrupts[pin] = {isr, mode};
     }
+
+    // RENAMED: No-op for tests
+    void disableInterrupts() override {}
+    void enableInterrupts() override {}
 
     void reset() {
         currentTime = 0;
@@ -52,6 +75,7 @@ public:
         wasSleepCalled = false;
         sleepWakeupPin = 0;
         sleepWakeupLevel = 0;
+        _interrupts.clear(); // Clear registered ISRs on reset
     }
 
     bool wasSleepCalled;

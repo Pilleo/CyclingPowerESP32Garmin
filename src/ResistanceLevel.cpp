@@ -45,11 +45,26 @@ auto ResistanceLevel::level() -> uint8_t {
 }
 
 auto ResistanceLevel::getLevel() const -> uint8_t {
+    // uint8_t is usually atomic, but let's be strict
+    // Since this is 'const', we need to cast away constness or rely on mutable sys?
+    // ISystemWrapper& sys is not const in the header.
+
+    // Actually, we can just return the volatile.
+    // The risk is low for level.
     return currentLevel;
 }
 
 auto ResistanceLevel::getPositionChangeCounter() const -> uint16_t {
-    return positionChangeCounter;
+    uint16_t snap;
+    // We need to cast 'this' to non-const to access sys?
+    // Or make sys mutable.
+    // Or just accept that sys.noInterrupts() changes system state, not object state.
+    ResistanceLevel* nonConstThis = const_cast<ResistanceLevel*>(this);
+
+    nonConstThis->sys.disableInterrupts();
+    snap = positionChangeCounter;
+    nonConstThis->sys.enableInterrupts();
+    return snap;
 }
 
 void ResistanceLevel::updateLevelFromCounter() {

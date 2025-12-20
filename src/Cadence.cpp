@@ -19,7 +19,7 @@ Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) : sys(sys), pin(pinn)
 {
     // Initialize state to avoid startup glitches
     oldState = (sys.digitalRead(pin) != 0);
-    
+
     elapsedTimestamp = 0;
     elapsedSampleTimeStamp = 0;
     rev = 0;
@@ -52,53 +52,72 @@ auto Cadence::cadence() -> float
 {
     const uint32_t mls = sys.millis();
 
-    // 1. Hardware Detection (Polling Driver)
-    // We continuously track the pin state to detect the specific Falling Edge event.
+    // 1. Hardware Detection (Still Polling for now)
     bool const currentState = sys.digitalRead(pin) != 0;
-
-    if (oldState && !currentState)
-    {
-        // Falling Edge Detected (High -> Low)
+    if (oldState && !currentState) {
         onPulse(mls);
     }
     oldState = currentState;
 
-    // 2. Business Logic (Calculation)
-    const uint32_t intervalTime = mls - elapsedTimestamp;
+    // 2. Atomic Snapshot
+    // We strictly assume 'rev' and 'elapsedSampleTimeStamp' are volatile
+    // and could change at ANY moment if we were using interrupts.
+    uint32_t snapshotTimestamp;
+    uint8_t snapshotRev;
+
+    // START CRITICAL SECTION
+    sys.disableInterrupts();
+
+    snapshotRev = rev;
+
+    // We only reset if we are actually going to process them
+    // But we need to check the interval first.
+    // Actually, 'elapsedTimestamp' is the "Start of Interval".
+    // 'rev' is the count SINCE 'elapsedTimestamp'.
+
+    // We can't do complex math inside critical section.
+    // But we can't reset 'rev' outside without risking race condition.
+    // Strategy: Read ONLY.
+
+    snapshotTimestamp = elapsedTimestamp;
+
+    sys.enableInterrupts();
+    // END CRITICAL SECTION
+
+    const uint32_t intervalTime = mls - snapshotTimestamp;
 
     if (intervalTime > MIN_DELAY_BETWEEN_FULL_ROTATION_MS)
     {
-        // Snapshot volatile variable to local scope (Prep for concurrency)
-        uint8_t currentRevs = rev;
-
-        if (currentRevs == 0)
+        if (snapshotRev == 0)
         {
-            // Timeout: 5 seconds with no pedaling = 0 RPM
-            if (intervalTime > MAX_IDLE_TIMEOUT_MS)
-            {
+            // ... Idle logic (Same as before) ...
+            if (intervalTime > MAX_IDLE_TIMEOUT_MS) {
                 rpm = 0.0F;
-                if (intervalTime > DEEP_SLEEP_TIMEOUT_MS)
-                {
-                    rpm = -1.0F;
-                }
+                if (intervalTime > DEEP_SLEEP_TIMEOUT_MS) rpm = -1.0F;
                 return rpm;
             }
-
-            // Coasting Logic (Natural Decay)
-            if (rpm > 0 && lastIntervalTime > 0 && intervalTime > lastIntervalTime)
-            {
+            if (rpm > 0 && lastIntervalTime > 0 && intervalTime > lastIntervalTime) {
                 rpm = calculateRpmFromRevolutions(1, intervalTime);
             }
         }
         else
         {
             // Valid revolution detected
-            rpm = calculateRpmFromRevolutions(currentRevs, intervalTime);
+            rpm = calculateRpmFromRevolutions(snapshotRev, intervalTime);
 
-            // Reset batch (Note: In pure interrupt mode, this needs atomic decrement)
+            // ATOMIC RESET
+            // We processed 'snapshotRev'. We need to subtract that from 'rev'
+            // or reset 'rev' to 0 IF it hasn't changed.
+            // Simplest safe approach: Reset everything and start new interval.
+
+            sys.disableInterrupts();
             rev = 0;
+            elapsedTimestamp = mls; // Start new interval now
+            // Note: In extremely high freq interrupts, we might lose a pulse that happened
+            // between the first sys.interrupts() and this sys.noInterrupts().
+            // For Cadence (max 2Hz), this window is negligible.
+            sys.enableInterrupts();
 
-            elapsedTimestamp = mls;
             lastIntervalTime = intervalTime;
             gattLastCrankRevolutionTimestamp = (gattLastCrankRevolutionTimestamp +
                                                 static_cast<uint16_t>((intervalTime / 1000.F) * 1024.F));
