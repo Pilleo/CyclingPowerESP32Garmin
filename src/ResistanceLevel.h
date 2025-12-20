@@ -3,7 +3,12 @@
 
 #include <cstdint>
 #include "SystemWrapper.h"
-
+#if defined(ESP32)
+    #include "esp_attr.h"
+    #define ISR_ATTR IRAM_ATTR
+#else
+    #define ISR_ATTR
+#endif
 class ResistanceLevel
 {
 public:
@@ -34,6 +39,11 @@ public:
      */
     void onLimitReset();
 
+    // NEW: ISR Entry Points
+    void enableInterrupt();
+    void handlePositionInterrupt();
+    static void ISR_ATTR isrPosition();
+
 private:
     ISystemWrapper& sys;
     const uint8_t limitPin;
@@ -55,6 +65,8 @@ private:
     static constexpr unsigned long DEBOUNCE_TIME_MS = 8;
     static constexpr unsigned long MOVEMENT_TIMEOUT_MS = 50;
     static constexpr unsigned long PAUSE_TIMEOUT_MS = 1700;
+    // NEW: Static pointer
+    static ResistanceLevel* _instance;
 };
 
 #endif // RESISTANCE_LEVEL_H

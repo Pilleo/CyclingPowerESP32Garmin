@@ -1,5 +1,5 @@
 #include <unity.h>
-#include "Cadence.h"
+#include "../../src/Cadence.h"
 #include "../common/MockSystemWrapper.h"
 
 // Define a dummy pin for testing

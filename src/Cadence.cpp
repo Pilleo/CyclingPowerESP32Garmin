@@ -1,5 +1,7 @@
 #include "Cadence.h"
 
+Cadence* Cadence::_instance = nullptr;
+
 auto Cadence::getGattLastCrankRevolutionTimestamp() const -> uint16_t
 {
     return (gattLastCrankRevolutionTimestamp);
@@ -13,6 +15,26 @@ auto Cadence::totalRevs() const -> uint32_t
 auto Cadence::lastTimestamp() const -> uint32_t
 {
     return elapsedTimestamp;
+}
+
+void Cadence::enableInterrupt() {
+    _instance = this;
+    // We prepare the bridge, but we DO NOT call sys.attachInterrupt() yet.
+    // That is the final step in the future.
+}
+
+// Static ISR: The Bridge
+void ISR_ATTR Cadence::isr() {
+    if (_instance) {
+        _instance->handleInterrupt();
+    }
+}
+
+// Instance ISR: The Worker
+void Cadence::handleInterrupt() {
+    // Get time immediately
+    uint32_t now = sys.millis();
+    onPulse(now);
 }
 
 Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) : sys(sys), pin(pinn)

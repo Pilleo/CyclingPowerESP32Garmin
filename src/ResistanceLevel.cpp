@@ -1,6 +1,6 @@
 #include "ResistanceLevel.h"
 #include <array>
-
+ResistanceLevel* ResistanceLevel::_instance = nullptr;
 namespace {
     struct LevelRange {
         uint16_t minCount;
@@ -39,6 +39,33 @@ ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limit
     positionChangeCounter = 0;
 }
 
+void ResistanceLevel::enableInterrupt() {
+    _instance = this;
+}
+
+void ISR_ATTR ResistanceLevel::isrPosition() {
+    if (_instance) {
+        _instance->handlePositionInterrupt();
+    }
+}
+
+void ResistanceLevel::handlePositionInterrupt() {
+    // 1. Capture Time
+    uint32_t now = sys.millis();
+
+    // 2. Read Direction Pins IMMEDIATELY
+    // We use the system wrapper. On ESP32 this is safe in ISRs.
+    // Ideally, for max speed, you'd use direct register access,
+    // but this is the "Safe and Smooth" refactoring.
+    bool pinBack = (sys.digitalRead(backwardsPin) != 0);
+    bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
+
+    bool isMovingBack = pinBack && !pinFwd;
+    bool isMovingForward = pinFwd && !pinBack;
+
+    // 3. Delegate to Core Logic
+    onPositionPulse(now, isMovingForward, isMovingBack);
+}
 auto ResistanceLevel::level() -> uint8_t {
     return getLevel();
 }
