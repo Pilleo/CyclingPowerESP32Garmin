@@ -37,29 +37,41 @@ static auto calculateRpmFromRevolutions(const uint8_t revolutions, const uint32_
     return instantaneousRpm;
 }
 
+void Cadence::onPulse(uint32_t now)
+{
+    // Debounce Logic: Only count if enough time passed since last registered pulse
+    if (now - elapsedSampleTimeStamp > MIN_DELAY_BETWEEN_FULL_ROTATION_MS)
+    {
+        rev++;
+        totalRev++;
+        elapsedSampleTimeStamp = now;
+    }
+}
 
 auto Cadence::cadence() -> float
 {
     const uint32_t mls = sys.millis();
-    const uint32_t sampleTime = mls - elapsedSampleTimeStamp;
 
-    if (sampleTime > MIN_DELAY_BETWEEN_FULL_ROTATION_MS)
+    // 1. Hardware Detection (Polling Driver)
+    // We continuously track the pin state to detect the specific Falling Edge event.
+    bool const currentState = sys.digitalRead(pin) != 0;
+
+    if (oldState && !currentState)
     {
-        bool const currentState = sys.digitalRead(pin) != 0;
-        if (oldState && currentState == false)
-        {
-            rev++;
-            totalRev++;
-            elapsedSampleTimeStamp = mls;
-        }
-        oldState = currentState;
+        // Falling Edge Detected (High -> Low)
+        onPulse(mls);
     }
+    oldState = currentState;
 
+    // 2. Business Logic (Calculation)
     const uint32_t intervalTime = mls - elapsedTimestamp;
 
     if (intervalTime > MIN_DELAY_BETWEEN_FULL_ROTATION_MS)
     {
-        if (rev == 0)
+        // Snapshot volatile variable to local scope (Prep for concurrency)
+        uint8_t currentRevs = rev;
+
+        if (currentRevs == 0)
         {
             // Timeout: 5 seconds with no pedaling = 0 RPM
             if (intervalTime > MAX_IDLE_TIMEOUT_MS)
@@ -73,19 +85,19 @@ auto Cadence::cadence() -> float
             }
 
             // Coasting Logic (Natural Decay)
-            // If we have valid history, and the current gap is longer than the last,
-            // calculate the "Virtual RPM" based on this growing gap.
             if (rpm > 0 && lastIntervalTime > 0 && intervalTime > lastIntervalTime)
             {
-                // Simple Natural Decay: RPM = 60000 / CurrentWaitingDuration
                 rpm = calculateRpmFromRevolutions(1, intervalTime);
             }
         }
         else
         {
             // Valid revolution detected
-            rpm = calculateRpmFromRevolutions(rev, intervalTime);
+            rpm = calculateRpmFromRevolutions(currentRevs, intervalTime);
+
+            // Reset batch (Note: In pure interrupt mode, this needs atomic decrement)
             rev = 0;
+
             elapsedTimestamp = mls;
             lastIntervalTime = intervalTime;
             gattLastCrankRevolutionTimestamp = (gattLastCrankRevolutionTimestamp +
