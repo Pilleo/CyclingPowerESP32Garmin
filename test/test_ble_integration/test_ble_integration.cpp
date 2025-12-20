@@ -1,6 +1,6 @@
 #include <unity.h>
 #include "../../src/BikeComputer.h"
-#include "MockSystemWrapper.h"
+#include "../common/MockSystemWrapper.h"
 #include "MockBleService.h"
 #include "../../src/Cadence.h"
 #include "../../src/ResistanceLevel.h"

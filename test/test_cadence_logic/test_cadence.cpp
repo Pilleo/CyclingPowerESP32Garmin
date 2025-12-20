@@ -1,6 +1,6 @@
 #include <unity.h>
 #include "Cadence.h"
-#include "MockSystemWrapper.h"
+#include "../common/MockSystemWrapper.h"
 
 // Define a dummy pin for testing
 const uint8_t TEST_PIN = 2;
@@ -11,7 +11,7 @@ Cadence *cadenceInstance;
 void setUp(void) {
     // set stuff up here
     // Re-initialize mockSys and cadenceInstance before each test
-    mockSys = MockSystemWrapper(); // Reset mock system wrapper
+    mockSys.reset();
     cadenceInstance = new Cadence(TEST_PIN, mockSys);
 }
 
@@ -37,7 +37,7 @@ void test_cadence_steady_60rpm() {
     const unsigned long SIMULATION_DURATION_MS = 10 * REVOLUTION_INTERVAL_MS; // Simulate for 10 seconds
 
     // Initial state: pin is HIGH
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     mockSys.setMillis(0);
 
     // Call cadence once to initialize internal state with pin HIGH
@@ -59,9 +59,9 @@ void test_cadence_steady_60rpm() {
         // Simulate the pulse: HIGH -> LOW transition
         if (t > 0 && (t % REVOLUTION_INTERVAL_MS) == 0) {
             // Just at the moment of revolution
-            mockSys.setPinState(false); // Pin goes LOW
+            mockSys.setPinState(TEST_PIN, false); // Pin goes LOW
         } else {
-            mockSys.setPinState(true); // Pin stays HIGH
+            mockSys.setPinState(TEST_PIN, true); // Pin stays HIGH
         }
 
         // Call cadence to process
@@ -96,7 +96,7 @@ void test_cadence_steady_10rpm() {
     const unsigned long REVOLUTION_INTERVAL_MS = 6000;
     const unsigned long SIMULATION_DURATION_MS = 5 * REVOLUTION_INTERVAL_MS; // Simulate for 5 revolutions
 
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     mockSys.setMillis(0);
 
     cadenceInstance->cadence();
@@ -105,9 +105,9 @@ void test_cadence_steady_10rpm() {
         mockSys.setMillis(t);
 
         if (t > 0 && (t % REVOLUTION_INTERVAL_MS) == 0) {
-            mockSys.setPinState(false); // Pin goes LOW
+            mockSys.setPinState(TEST_PIN, false); // Pin goes LOW
         } else {
-            mockSys.setPinState(true); // Pin stays HIGH
+            mockSys.setPinState(TEST_PIN, true); // Pin stays HIGH
         }
         cadenceInstance->cadence();
     }
@@ -124,7 +124,7 @@ void test_cadence_steady_120rpm() {
     const unsigned long REVOLUTION_INTERVAL_MS = 500;
     const unsigned long SIMULATION_DURATION_MS = 10 * REVOLUTION_INTERVAL_MS; // Simulate for 10 revolutions
 
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     mockSys.setMillis(0);
 
     cadenceInstance->cadence();
@@ -133,9 +133,9 @@ void test_cadence_steady_120rpm() {
         mockSys.setMillis(t);
 
         if (t > 0 && (t % REVOLUTION_INTERVAL_MS) == 0) {
-            mockSys.setPinState(false); // Pin goes LOW
+            mockSys.setPinState(TEST_PIN, false); // Pin goes LOW
         } else {
-            mockSys.setPinState(true); // Pin stays HIGH
+            mockSys.setPinState(TEST_PIN, true); // Pin stays HIGH
         }
         cadenceInstance->cadence();
     }
@@ -153,7 +153,7 @@ void test_cadence_sudden_stop() {
     const unsigned long ACTIVE_SIMULATION_DURATION_MS = 5 * REVOLUTION_INTERVAL_MS; // Simulate 5 revolutions
     const unsigned long STOP_DURATION_MS = 6000; // Stop for 6 seconds (more than 5000ms threshold)
 
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     mockSys.setMillis(0);
     cadenceInstance->cadence();
 
@@ -162,9 +162,9 @@ void test_cadence_sudden_stop() {
     for (unsigned long t = 0; t <= ACTIVE_SIMULATION_DURATION_MS + REVOLUTION_INTERVAL_MS; t += 10) {
         mockSys.setMillis(t);
         if (t > 0 && (t % REVOLUTION_INTERVAL_MS) == 0) {
-            mockSys.setPinState(false);
+            mockSys.setPinState(TEST_PIN, false);
         } else {
-            mockSys.setPinState(true);
+            mockSys.setPinState(TEST_PIN, true);
         }
         cadenceInstance->cadence();
     }
@@ -176,7 +176,7 @@ void test_cadence_sudden_stop() {
     TEST_MESSAGE("Stopping pulses and waiting for RPM to drop to 0.");
 
     // Stop pulses (pin remains HIGH)
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
 
     // Advance time beyond the 5-second threshold without any pulses
     unsigned long stopTimeStart = mockSys.millis();
@@ -195,7 +195,7 @@ void test_cadence_very_long_stop() {
     const unsigned long ACTIVE_SIMULATION_DURATION_MS = 5 * REVOLUTION_INTERVAL_MS; // Simulate 5 revolutions
     const unsigned long VERY_LONG_STOP_DURATION_MS = 60000 * 16; // Stop for 16 minutes (more than 15 minutes threshold)
 
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     mockSys.setMillis(0);
     cadenceInstance->cadence();
 
@@ -204,9 +204,9 @@ void test_cadence_very_long_stop() {
     for (unsigned long t = 0; t <= ACTIVE_SIMULATION_DURATION_MS + REVOLUTION_INTERVAL_MS; t += 10) {
         mockSys.setMillis(t);
         if (t > 0 && (t % REVOLUTION_INTERVAL_MS) == 0) {
-            mockSys.setPinState(false);
+            mockSys.setPinState(TEST_PIN, false);
         } else {
-            mockSys.setPinState(true);
+            mockSys.setPinState(TEST_PIN, true);
         }
         cadenceInstance->cadence();
     }
@@ -218,7 +218,7 @@ void test_cadence_very_long_stop() {
     TEST_MESSAGE("Stopping pulses and waiting for RPM to drop to -1 after a very long stop.");
 
     // Stop pulses (pin remains HIGH)
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
 
     // Advance time beyond the 15-minute threshold without any pulses
     unsigned long stopTimeStart = mockSys.millis();
@@ -239,7 +239,7 @@ void test_cadence_inconsistent_pulses() {
     const unsigned long NUM_REVOLUTIONS = 20;
     const unsigned long SIMULATION_DURATION_MS = NUM_REVOLUTIONS * BASE_REVOLUTION_INTERVAL_MS;
 
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     mockSys.setMillis(0);
     cadenceInstance->cadence();
 
@@ -260,16 +260,16 @@ void test_cadence_inconsistent_pulses() {
 
         // Simulate going HIGH then LOW to trigger a pulse
         mockSys.setMillis(current_time - 50); // Ensure some time where pin is HIGH
-        mockSys.setPinState(true);
+        mockSys.setPinState(TEST_PIN, true);
         cadenceInstance->cadence();
 
         mockSys.setMillis(current_time); // Pin goes LOW at the revolution time
-        mockSys.setPinState(false);
+        mockSys.setPinState(TEST_PIN, false);
         cadenceInstance->cadence();
 
         // Keep calling cadence to allow it to process the state changes
         mockSys.setMillis(current_time + 10);
-        mockSys.setPinState(true); // Pin goes back HIGH
+        mockSys.setPinState(TEST_PIN, true); // Pin goes back HIGH
         cadenceInstance->cadence();
 
         // Advance time in small steps for the rest of the interval
@@ -302,7 +302,7 @@ void test_cadence_fractional_rpm() {
     const unsigned long SIMULATION_DURATION_MS = 10 * REVOLUTION_INTERVAL_MS;
 
 
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
 
 
     mockSys.setMillis(0);
@@ -316,13 +316,13 @@ void test_cadence_fractional_rpm() {
 
 
         if ((t % REVOLUTION_INTERVAL_MS) == 0) {
-            mockSys.setPinState(false);
+            mockSys.setPinState(TEST_PIN, false);
 
 
             cadenceInstance->cadence();
 
 
-            mockSys.setPinState(true);
+            mockSys.setPinState(TEST_PIN, true);
         } else {
             cadenceInstance->cadence();
         }
@@ -352,7 +352,7 @@ void test_cadence_debouncing() {
     const unsigned long SHORT_INTERVAL_MS = 100; // Shorter than debounce threshold
 
 
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
 
     mockSys.setMillis(0);
 
@@ -365,13 +365,13 @@ void test_cadence_debouncing() {
 
     mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100); // Trigger first pulse after enough time
 
-    mockSys.setPinState(false); // LOW
+    mockSys.setPinState(TEST_PIN, false); // LOW
 
     cadenceInstance->cadence();
 
     mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 110); // HIGH
 
-    mockSys.setPinState(true); // HIGH
+    mockSys.setPinState(TEST_PIN, true); // HIGH
 
     cadenceInstance->cadence();
 
@@ -385,13 +385,13 @@ void test_cadence_debouncing() {
 
     mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS); // Trigger second pulse
 
-    mockSys.setPinState(false); // LOW
+    mockSys.setPinState(TEST_PIN, false); // LOW
 
     cadenceInstance->cadence();
 
     mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS + 10); // HIGH
 
-    mockSys.setPinState(true); // HIGH
+    mockSys.setPinState(TEST_PIN, true); // HIGH
 
     cadenceInstance->cadence();
 
@@ -400,13 +400,13 @@ void test_cadence_debouncing() {
 
     mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS * 2); // Trigger third pulse
 
-    mockSys.setPinState(false); // LOW
+    mockSys.setPinState(TEST_PIN, false); // LOW
 
     cadenceInstance->cadence();
 
     mockSys.setMillis(DEBOUNCE_THRESHOLD_MS + 100 + SHORT_INTERVAL_MS * 2 + 10); // HIGH
 
-    mockSys.setPinState(true); // HIGH
+    mockSys.setPinState(TEST_PIN, true); // HIGH
 
     cadenceInstance->cadence();
 
@@ -432,7 +432,7 @@ void test_cadence_total_revs() {
     const unsigned long REVOLUTION_INTERVAL_MS = 1000; // 60 RPM for simplicity
 
 
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
 
     mockSys.setMillis(0);
 
@@ -450,21 +450,21 @@ void test_cadence_total_revs() {
 
         mockSys.setMillis(currentPulseTime - 50); // Pin HIGH before LOW
 
-        mockSys.setPinState(true);
+        mockSys.setPinState(TEST_PIN, true);
 
         cadenceInstance->cadence();
 
 
         mockSys.setMillis(currentPulseTime); // Pin LOW (trigger)
 
-        mockSys.setPinState(false);
+        mockSys.setPinState(TEST_PIN, false);
 
         cadenceInstance->cadence();
 
 
         mockSys.setMillis(currentPulseTime + 10); // Pin HIGH again
 
-        mockSys.setPinState(true);
+        mockSys.setPinState(TEST_PIN, true);
 
         cadenceInstance->cadence();
     }
@@ -487,14 +487,14 @@ void test_cadence_millis_wraparound() {
     uint32_t startMls = MAX_UINT32 - 1500;
 
     mockSys.setMillis(startMls);
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     cadenceInstance->cadence(); // Init internal state
 
     // 2. Pulse 1 at startMls (Pin goes LOW)
     mockSys.setMillis(startMls);
-    mockSys.setPinState(false);
+    mockSys.setPinState(TEST_PIN, false);
     cadenceInstance->cadence();
-    mockSys.setPinState(true); // Reset to HIGH
+    mockSys.setPinState(TEST_PIN, true); // Reset to HIGH
     cadenceInstance->cadence();
 
     // 3. Pulse 2 after overflow (at time 500)
@@ -503,10 +503,10 @@ void test_cadence_millis_wraparound() {
     uint32_t nextMls = 500;
     mockSys.setMillis(nextMls);
 
-    mockSys.setPinState(false); // LOW
+    mockSys.setPinState(TEST_PIN, false); // LOW
     cadenceInstance->cadence();
 
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     cadenceInstance->cadence(); // Trigger calculation
 
     // 4. Verify
@@ -522,20 +522,20 @@ void test_cadence_millis_wraparound() {
 void test_cadence_coasting_decay_logic() {
     // 1. Establish steady 60 RPM (1000ms interval)
     mockSys.setMillis(0);
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     cadenceInstance->cadence();
 
     // Pulse at 1000ms
     mockSys.setMillis(1000);
-    mockSys.setPinState(false); cadenceInstance->cadence();
+    mockSys.setPinState(TEST_PIN, false); cadenceInstance->cadence();
     mockSys.setMillis(1350);
-    mockSys.setPinState(true); cadenceInstance->cadence();
+    mockSys.setPinState(TEST_PIN, true); cadenceInstance->cadence();
 
     // Pulse at 2000ms
     mockSys.setMillis(2000);
-    mockSys.setPinState(false); cadenceInstance->cadence();
+    mockSys.setPinState(TEST_PIN, false); cadenceInstance->cadence();
     mockSys.setMillis(2350);
-    mockSys.setPinState(true); cadenceInstance->cadence();
+    mockSys.setPinState(TEST_PIN, true); cadenceInstance->cadence();
 
     TEST_ASSERT_EQUAL_FLOAT(60.0f, cadenceInstance->cadence());
 
@@ -568,7 +568,7 @@ void test_cadence_coasting_decay_logic() {
  */
 void test_cadence_startup_magnet_present() {
     mockSys.setMillis(0);
-    mockSys.setPinState(false); // Sensor is active (LOW) at startup
+    mockSys.setPinState(TEST_PIN, false); // Sensor is active (LOW) at startup
 
     // Re-init with this state
     if (cadenceInstance) delete cadenceInstance;
@@ -586,7 +586,7 @@ void test_cadence_startup_magnet_present() {
 
     // Release magnet (High) - Transition LOW -> HIGH
     mockSys.setMillis(1100);
-    mockSys.setPinState(true);
+    mockSys.setPinState(TEST_PIN, true);
     cadenceInstance->cadence();
 
     // No revolution counted on release (logic counts on FALLING edge usually,
@@ -595,7 +595,7 @@ void test_cadence_startup_magnet_present() {
 
     // Trigger next valid pulse
     mockSys.setMillis(2000);
-    mockSys.setPinState(false); // LOW (Pulse trigger)
+    mockSys.setPinState(TEST_PIN, false); // LOW (Pulse trigger)
     cadenceInstance->cadence();
 
     // Now we should have 1 revolution?
