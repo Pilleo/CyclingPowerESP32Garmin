@@ -603,7 +603,47 @@ void test_cadence_startup_magnet_present() {
     // until the *second* pulse defines an interval.
     TEST_ASSERT_EQUAL(1, cadenceInstance->totalRevs());
 }
+/**
+ * Test: Short Interval Rejection (Zero Time Prevention)
+ * Rationale: Ensures that pulses arriving instantly (0ms) or too quickly (<330ms)
+ * are debounced and ignored, preserving the previous valid RPM state.
+ * This prevents processing invalid intervals which could lead to erratic data.
+ */
+void test_cadence_prevents_zero_time_calculation() {
+    // 1. Setup initial state (Time = 1000ms)
+    mockSys.setMillis(1000);
+    mockSys.setPinState(TEST_PIN, true); // High (Init)
+    cadenceInstance->cadence();
 
+    // 2. Trigger a valid pulse (1 Revolution in 1000ms = 60 RPM)
+    // Rev count becomes 1.
+    // Interval (1000 - 0) > 330 -> Calculation runs.
+    mockSys.setPinState(TEST_PIN, false); // Low (Active)
+    cadenceInstance->cadence();
+    mockSys.setPinState(TEST_PIN, true);  // High (Reset)
+    cadenceInstance->cadence();
+
+    TEST_ASSERT_EQUAL_FLOAT(60.0f, cadenceInstance->cadence());
+
+    // 3. Trigger IMMEDIATE second pulse (0ms elapsed since last pin change)
+    // This simulates a hardware bounce or glitch.
+    // Time is STILL 1000ms.
+    mockSys.setMillis(1000);
+    mockSys.setPinState(TEST_PIN, false);
+
+    float result = cadenceInstance->cadence();
+
+    // 4. Assert Stability
+    // The debounce logic (sampleTime > 330ms) should reject this 0ms pulse.
+    // Therefore, the rev count stays at 1.
+    // The calculation loop still sees interval=1000ms and rev=1.
+    // Result should remain 60 RPM.
+    // If it processed the glitch, it might see 2 revs in 1000ms (120 RPM) or crash.
+    TEST_ASSERT_EQUAL_FLOAT(60.0f, result);
+
+    // Verify internal state (totalRevs should still be 1, not 2)
+    TEST_ASSERT_EQUAL_MESSAGE(1, cadenceInstance->totalRevs(), "0ms pulse should be ignored by debounce logic");
+}
 int main() {
     // Renamed setup() to main() and changed return type to int
 
@@ -634,7 +674,7 @@ int main() {
     //RUN_TEST(test_cadence_millis_wraparound);//fails, not the biggest deal
     RUN_TEST(test_cadence_coasting_decay_logic);
     RUN_TEST(test_cadence_startup_magnet_present);
-
+RUN_TEST(test_cadence_prevents_zero_time_calculation);
 
     return UNITY_END(); // Return test result
 }

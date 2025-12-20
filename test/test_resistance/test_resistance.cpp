@@ -566,6 +566,60 @@ void test_resistance_counter_overflow() {
     // Check level at 0. Level ranges say {0, 29, 1}. So it should be Level 1.
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
 }
+/**
+ * Test: Noisy Input Handling (Baseline)
+ * Rationale: Captures how the current polling loop handles signal "chatter".
+ * We simulate a transition where the pin bounces rapidly.
+ * The system should filter this and count exactly 1 change.
+ */
+void test_resistance_noisy_transition_baseline() {
+    unsigned long time = 0;
+    mockSys.setMillis(time);
+
+    // Setup: Ready to move forward
+    mockSys.setPinState(BACKWARDS_PIN, false);
+    mockSys.setPinState(FORWARD_PIN, true);
+
+    // 1. Establish initial state with a "Long Pause" to guarantee system is active
+    // This increments the counter once and sets 'prevDirectionWasForward = true'.
+    time = 2000;
+    simulate_position_change(time);
+
+    uint16_t startCounter = resistanceLevelInstance->getPositionChangeCounter();
+
+    // Capture current pin state to flip it correctly
+    bool currentPinState = (mockSys.digitalRead(POSITION_PIN) != 0);
+    bool targetState = !currentPinState;
+
+    // SIMULATE NOISY EDGE
+    // We use a delta of 30ms.
+    // Logic: 30ms < 50ms (MOVEMENT_TIMEOUT_MS) -> isConsistent = true.
+    // Since isConsistent && prevDirectionWasForward, it WILL increment.
+
+    // 1. Valid Transition (Flip State)
+    time += 30;
+    mockSys.setMillis(time);
+    mockSys.setPinState(POSITION_PIN, targetState);
+    resistanceLevelInstance->level(); // Process valid edge
+
+    // 2. Bounce (Revert to old state) - 2ms later
+    // Delta = 2ms. Logic: 2ms < 8ms (DEBOUNCE_TIME_MS). Ignored.
+    time += 2;
+    mockSys.setMillis(time);
+    mockSys.setPinState(POSITION_PIN, !targetState);
+    resistanceLevelInstance->level();
+
+    // 3. Bounce (Return to target state) - 2ms later
+    // Delta from last valid = 4ms. Ignored.
+    time += 2;
+    mockSys.setMillis(time);
+    mockSys.setPinState(POSITION_PIN, targetState);
+    resistanceLevelInstance->level();
+
+    // Assert: The counter should have incremented exactly ONCE from the startCounter.
+    uint16_t endCounter = resistanceLevelInstance->getPositionChangeCounter();
+    TEST_ASSERT_EQUAL_MESSAGE(startCounter + 1, endCounter, "System should count exactly 1 pulse despite noise");
+}
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_resistance_initialization);
@@ -586,7 +640,7 @@ int main() {
     RUN_TEST(test_resume_after_long_pause_any_direction);
     RUN_TEST(test_resistance_invalid_hardware_state);
     RUN_TEST(test_resistance_counter_overflow);
-
+RUN_TEST(test_resistance_noisy_transition_baseline);
 
 
     return UNITY_END();

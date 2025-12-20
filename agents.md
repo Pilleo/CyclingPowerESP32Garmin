@@ -59,20 +59,20 @@ To compile, test, flash the code to the ESP32:
 
 ```bash
 # Build
-platformio run -e lolin32_lite
+pio run -e lolin32_lite
 
 # Upload
-platformio run -t upload -e lolin32_lite
+pio run -t upload -e lolin32_lite
 
 # Monitor Serial Output
-platformio run -t monitor -e lolin32_lite
+pio run -t monitor -e lolin32_lite
 
 # Test with coverage
 # 1. Clean previous builds to ensure fresh coverage data
-platformio run -e native -t clean
+pio run -e native -t clean
 
 # 2. Run the tests in the native environment
-platformio test -e native
+pio test -e native
 
 # 3. Capture coverage data (creates a tracefile)
 lcov --capture --directory .pio/build/native/ --output-file coverage.info

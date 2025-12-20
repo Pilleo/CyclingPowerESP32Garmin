@@ -169,6 +169,33 @@ void test_power_negative_cadence() {
     uint16_t power = Power::power(5, negCadence);
     TEST_ASSERT_EQUAL(0, power);
 }
+/**
+ * Test: Cadence Boundary Condition (9.9 RPM vs 10.0 RPM)
+ * Rationale: Validates the guard clause for low cadence.
+ * Level 5 is selected.
+ * Table Row 0 (Cadence <= 20) for Level 5 (Index 4) is 16 Watts.
+ */
+void test_power_cadence_boundary_behavior() {
+    uint8_t level = 5;
+
+    // Case 1: 9.9 RPM (Should be 0)
+    // Guard clause `if (cadence < 10.0F)` returns 0.
+    uint16_t p_below = Power::power(level, 9.9f);
+    TEST_ASSERT_EQUAL_MESSAGE(0, p_below, "Cadence of 9.9 RPM should yield 0 Watts");
+
+    // Case 2: 10.0 RPM (Should be valid)
+    // Bypasses guard. hits `get_power_for_cadence(10)`.
+    // Since 10 < 20, it uses index 0.
+    // powerFromCadenceByLevel[0][4] (Level 5) is 16.
+    uint16_t p_at_10 = Power::power(level, 10.0f);
+    TEST_ASSERT_EQUAL_MESSAGE(16, p_at_10, "Cadence of 10.0 RPM should yield 16 Watts (Level 5 base)");
+
+    // Case 3: 10.1 RPM
+    // Should be valid. Since table is flat (16W) from 10 to 20 RPM,
+    // interpolation between 10 (16W) and 11 (16W) should be 16W.
+    uint16_t p_above = Power::power(level, 10.1f);
+    TEST_ASSERT_INT_WITHIN(1, 16, p_above);
+}
 int main()
 {
     UNITY_BEGIN();
@@ -181,6 +208,6 @@ int main()
     RUN_TEST(test_power_interpolation_parametrized);
     RUN_TEST(test_power_level_bounds_safety);
     RUN_TEST(test_power_negative_cadence);
-
+    RUN_TEST(test_power_cadence_boundary_behavior);
     return UNITY_END();
 }
