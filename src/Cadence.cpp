@@ -47,42 +47,33 @@ void Cadence::onPulse(uint32_t now)
         elapsedSampleTimeStamp = now;
     }
 }
+// ... onPulse ...
+
+void Cadence::poll()
+{
+    // 1. Hardware Detection (Polling Driver)
+    bool const currentState = sys.digitalRead(pin) != 0;
+    if (oldState && !currentState) {
+        onPulse(sys.millis());
+    }
+    oldState = currentState;
+}
 
 auto Cadence::cadence() -> float
 {
+    // NO HARDWARE READING HERE!
+    // Only pure logic based on volatile state.
+
     const uint32_t mls = sys.millis();
 
-    // 1. Hardware Detection (Still Polling for now)
-    bool const currentState = sys.digitalRead(pin) != 0;
-    if (oldState && !currentState) {
-        onPulse(mls);
-    }
-    oldState = currentState;
-
     // 2. Atomic Snapshot
-    // We strictly assume 'rev' and 'elapsedSampleTimeStamp' are volatile
-    // and could change at ANY moment if we were using interrupts.
     uint32_t snapshotTimestamp;
     uint8_t snapshotRev;
 
-    // START CRITICAL SECTION
     sys.disableInterrupts();
-
     snapshotRev = rev;
-
-    // We only reset if we are actually going to process them
-    // But we need to check the interval first.
-    // Actually, 'elapsedTimestamp' is the "Start of Interval".
-    // 'rev' is the count SINCE 'elapsedTimestamp'.
-
-    // We can't do complex math inside critical section.
-    // But we can't reset 'rev' outside without risking race condition.
-    // Strategy: Read ONLY.
-
     snapshotTimestamp = elapsedTimestamp;
-
     sys.enableInterrupts();
-    // END CRITICAL SECTION
 
     const uint32_t intervalTime = mls - snapshotTimestamp;
 
@@ -90,7 +81,6 @@ auto Cadence::cadence() -> float
     {
         if (snapshotRev == 0)
         {
-            // ... Idle logic (Same as before) ...
             if (intervalTime > MAX_IDLE_TIMEOUT_MS) {
                 rpm = 0.0F;
                 if (intervalTime > DEEP_SLEEP_TIMEOUT_MS) rpm = -1.0F;
@@ -102,20 +92,11 @@ auto Cadence::cadence() -> float
         }
         else
         {
-            // Valid revolution detected
             rpm = calculateRpmFromRevolutions(snapshotRev, intervalTime);
-
-            // ATOMIC RESET
-            // We processed 'snapshotRev'. We need to subtract that from 'rev'
-            // or reset 'rev' to 0 IF it hasn't changed.
-            // Simplest safe approach: Reset everything and start new interval.
 
             sys.disableInterrupts();
             rev = 0;
-            elapsedTimestamp = mls; // Start new interval now
-            // Note: In extremely high freq interrupts, we might lose a pulse that happened
-            // between the first sys.interrupts() and this sys.noInterrupts().
-            // For Cadence (max 2Hz), this window is negligible.
+            elapsedTimestamp = mls;
             sys.enableInterrupts();
 
             lastIntervalTime = intervalTime;

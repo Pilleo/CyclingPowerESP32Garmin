@@ -38,6 +38,11 @@ public:
     }
 
     void update() {
+        // POLL SENSORS (New Step)
+        // When you switch to Interrupts, you will just comment these two lines out!
+        _cadence.poll();
+        _resistance.poll();
+
         const int16_t cad = _cadence.cadence();
 
         _led.update(cad);

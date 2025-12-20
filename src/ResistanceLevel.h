@@ -9,10 +9,14 @@ class ResistanceLevel
 public:
     explicit ResistanceLevel(uint8_t backwardsPin, uint8_t limitPin, uint8_t positionPin, uint8_t forwardsPin, ISystemWrapper& sys);
 
-    void update();
     auto getLevel() const -> uint8_t;
     auto getPositionChangeCounter() const -> uint16_t;
-    auto level() -> uint8_t; // Legacy wrapper
+    auto level() -> uint8_t; // // Wrapper returns level
+    /**
+      * @brief Polling Driver.
+      * Reads all resistance pins and triggers events if edges are detected.
+      */
+    void poll();
 
     /**
      * @brief Triggered when the position sensor detects an edge (pulse).

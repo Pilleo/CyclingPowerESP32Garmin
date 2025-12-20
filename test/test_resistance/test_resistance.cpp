@@ -36,6 +36,7 @@ void simulate_position_change(unsigned long &time) {
     // Toggle the position pin state and call level() to process the change
     bool currentState = mockSys.digitalRead(POSITION_PIN);
     mockSys.setPinState(POSITION_PIN, !currentState);
+    resistanceLevelInstance->poll();
     resistanceLevelInstance->level();
 }
 
@@ -67,8 +68,7 @@ void test_resistance_limit_switch_reset() {
     mockSys.setPinState(LIMIT_PIN, true);
 
     // 4. Call level() which triggers the check
-    resistanceLevelInstance->level();
-
+    resistanceLevelInstance->poll();
     // 5. Assert that level is reset to 1
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
 
@@ -79,6 +79,7 @@ void test_resistance_limit_switch_reset() {
     for (int i = 0; i < 50; ++i) {
         simulate_position_change(time);
     }
+    resistanceLevelInstance->poll();
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
 }
 
@@ -264,6 +265,7 @@ void test_limit_switch_ignored_while_forward() {
     mockSys.setPinState(LIMIT_PIN, true);
 
     // 3. Call update
+    resistanceLevelInstance->poll();
     resistanceLevelInstance->level();
 
     // 4. Assert NO reset
@@ -313,6 +315,7 @@ void test_backward_stability_and_hysteresis() {
     mockSys.setPinState(FORWARD_PIN, false);
 
     // Simulate a loop cycle without pulse to flush state
+    resistanceLevelInstance->poll();
     resistanceLevelInstance->level();
 
     // 5. RESUME BACKWARD (FAST)
@@ -600,6 +603,7 @@ void test_resistance_noisy_transition_baseline() {
     time += 30;
     mockSys.setMillis(time);
     mockSys.setPinState(POSITION_PIN, targetState);
+    resistanceLevelInstance->poll();
     resistanceLevelInstance->level(); // Process valid edge
 
     // 2. Bounce (Revert to old state) - 2ms later
@@ -607,6 +611,7 @@ void test_resistance_noisy_transition_baseline() {
     time += 2;
     mockSys.setMillis(time);
     mockSys.setPinState(POSITION_PIN, !targetState);
+    resistanceLevelInstance->poll();
     resistanceLevelInstance->level();
 
     // 3. Bounce (Return to target state) - 2ms later
@@ -614,6 +619,7 @@ void test_resistance_noisy_transition_baseline() {
     time += 2;
     mockSys.setMillis(time);
     mockSys.setPinState(POSITION_PIN, targetState);
+    resistanceLevelInstance->poll();
     resistanceLevelInstance->level();
 
     // Assert: The counter should have incremented exactly ONCE from the startCounter.

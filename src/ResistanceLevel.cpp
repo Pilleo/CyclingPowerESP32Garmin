@@ -40,7 +40,6 @@ ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limit
 }
 
 auto ResistanceLevel::level() -> uint8_t {
-    update();
     return getLevel();
 }
 
@@ -53,6 +52,7 @@ auto ResistanceLevel::getLevel() const -> uint8_t {
     // The risk is low for level.
     return currentLevel;
 }
+
 
 auto ResistanceLevel::getPositionChangeCounter() const -> uint16_t {
     uint16_t snap;
@@ -110,9 +110,8 @@ void ResistanceLevel::onPositionPulse(uint32_t now, bool isMovingForward, bool i
         updateLevelFromCounter();
     }
 }
-
-void ResistanceLevel::update() {
-    // 1. Read Inputs (Polling Driver)
+void ResistanceLevel::poll() { // Was update()
+    // 1. Read Inputs
     const bool pinBackRaw = (sys.digitalRead(backwardsPin) != 0);
     const bool pinForwardRaw = (sys.digitalRead(forwardsPin) != 0);
     const bool pinPosition = (sys.digitalRead(positionPin) != 0);
@@ -130,7 +129,6 @@ void ResistanceLevel::update() {
     // 3. Detect Edge
     if (pinPosition != oldPositionState) {
         oldPositionState = pinPosition;
-        // Delegate logic to Core
         onPositionPulse(sys.millis(), isMovingForward, isMovingBack);
     }
 }

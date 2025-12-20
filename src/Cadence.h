@@ -9,35 +9,36 @@ class Cadence
 public:
     explicit Cadence(uint8_t pinn, ISystemWrapper& sys);
 
+    /**
+     * @brief Polling Driver.
+     * Checks the physical pin state. If a pulse is detected, triggers onPulse().
+     * Call this in the main loop if NOT using interrupts.
+     */
+    void poll();
+
+    /**
+     * @brief Calculates and returns the current Cadence (RPM).
+     * Does NOT read hardware pins. Uses internal state.
+     */
     auto cadence() -> float;
 
     auto lastTimestamp() const -> uint32_t;
-
     auto getGattLastCrankRevolutionTimestamp() const -> uint16_t;
-
     auto totalRevs() const -> uint32_t;
 
-    /**
-     * @brief Triggered when a magnet pulse is detected.
-     * Handles debouncing and counter incrementing.
-     *
-     * @param timestampMs The time (millis) when the pulse occurred.
-     */
+    // Core Logic (Public for Tests/ISRs)
     void onPulse(uint32_t timestampMs);
 
 private:
-
     ISystemWrapper& sys;
     const uint8_t pin;
     float rpm = 0;
 
     uint32_t lastIntervalTime = 0;
-    bool oldState;
+    bool oldState; // Used only by poll()
 
-    // Volatile: These will be accessed by ISRs in the future
     volatile uint32_t elapsedTimestamp = 0;
     volatile uint32_t elapsedSampleTimeStamp = 0;
-
     volatile uint8_t rev = 0;
     volatile uint32_t totalRev = 0;
     volatile uint16_t gattLastCrankRevolutionTimestamp = 0;
