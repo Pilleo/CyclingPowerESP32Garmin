@@ -38,6 +38,10 @@ public:
         sleepWakeupLevel = wakeupLevel;
     }
 
+    void attachInterrupt(uint8_t pin, isr_t isr, int mode) override {
+        // No-op for now, can be expanded to store ISRs for testing
+    }
+
     bool wasSleepCalled;
     uint8_t sleepWakeupPin;
     int sleepWakeupLevel;

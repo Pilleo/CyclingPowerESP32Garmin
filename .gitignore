@@ -8,3 +8,6 @@ cmake-build-debug
 .idea
 CyclingPowerGarmin.iml
 CyclingPowerGarmin.code-workspace
+/coverage_report/
+/coverage.info
+/coverage_filtered.info

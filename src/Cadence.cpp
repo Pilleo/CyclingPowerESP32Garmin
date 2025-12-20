@@ -46,7 +46,7 @@ auto Cadence::cadence() -> float
     if (sampleTime > MIN_DELAY_BETWEEN_FULL_ROTATION_MS)
     {
         bool const currentState = sys.digitalRead(pin) != 0;
-        if (oldState == true && currentState == false)
+        if (oldState && currentState == false)
         {
             rev++;
             totalRev++;

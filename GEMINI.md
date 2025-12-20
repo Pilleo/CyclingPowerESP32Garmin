@@ -54,3 +54,19 @@ platformio run -t upload -e lolin32_lite
 
 # Monitor Serial Output
 platformio run -t monitor -e lolin32_lite
+
+# Test with coverage
+# 1. Clean previous builds to ensure fresh coverage data
+platformio run -e native -t clean
+
+# 2. Run the tests in the native environment
+platformio test -e native
+
+# 3. Capture coverage data (creates a tracefile)
+lcov --capture --directory .pio/build/native/ --output-file coverage.info
+
+# 4. Filter out system libraries and test framework code (optional but recommended)
+lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' --output-file coverage_filtered.info
+
+# 5. Generate the HTML report
+genhtml coverage_filtered.info --output-directory coverage_report

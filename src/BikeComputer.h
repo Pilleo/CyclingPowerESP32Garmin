@@ -6,6 +6,7 @@
 #include "ResistanceLevel.h"
 #include "IBleService.h"
 #include "Power.h"
+#include "StatusLed.h"
 
 struct BikeComputerConfig {
     uint8_t ledPin;
@@ -18,51 +19,28 @@ class BikeComputer {
     ResistanceLevel& _resistance;
     IBleService& _bleService;
     BikeComputerConfig _config;
+    StatusLed _led;
 
     unsigned long lastDataSentTimestamp = 0;
     uint16_t currentPower = 0;
     uint8_t lastLevel = 1;
-    uint32_t lastBlink = 0;
-
-    // Removed incomingRPM as it was constant and unused effectively
-    // static constexpr int incomingRPM = 45;
 
     // Constants
     static constexpr int timePerioudForSendingData = 510;
 
 public:
     BikeComputer(ISystemWrapper& sys, Cadence& cad, ResistanceLevel& res, IBleService& ble, BikeComputerConfig config = {27, 15})
-        : _sys(sys), _cadence(cad), _resistance(res), _bleService(ble), _config(config) {}
+        : _sys(sys), _cadence(cad), _resistance(res), _bleService(ble), _config(config), _led(sys, config.ledPin) {}
 
     void setup() {
-        _sys.digitalWrite(_config.ledPin, 0);
+        _led.setup();
         _bleService.start();
     }
 
     void update() {
         const int16_t cad = _cadence.cadence();
 
-        // Blink Logic based on ACTUAL cadence
-        // If cadence is 0, maybe don't blink or blink slowly?
-        // Original logic: 60000 / incomingRPM.
-        // New logic: 60000 / cad (if cad > 0)
-
-        int timeFrameForBlink = 1000; // Default slow blink if 0 rpm
-        if (cad > 0) {
-            timeFrameForBlink = 60000 / cad;
-        }
-
-        long const start = _sys.millis();
-
-        if (start - lastBlink >= timeFrameForBlink)
-        {
-            _sys.digitalWrite(_config.ledPin, 0); // LOW
-            lastBlink = start;
-        }
-        else if (start - lastBlink >= 1)
-        {
-            _sys.digitalWrite(_config.ledPin, 1); // HIGH
-        }
+        _led.update(cad);
 
         const unsigned long ms = _sys.millis();
         const uint8_t l = _resistance.level();
