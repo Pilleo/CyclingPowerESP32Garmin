@@ -1,7 +1,7 @@
 #ifndef MOCK_SYSTEM_WRAPPER_H
 #define MOCK_SYSTEM_WRAPPER_H
 
-#include "SystemWrapper.h"
+#include "../../src/SystemWrapper.h"
 
 class MockSystemWrapper : public ISystemWrapper {
 public:

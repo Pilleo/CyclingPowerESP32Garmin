@@ -1,8 +1,10 @@
 # CyclingPowerGarmin
 
-**CyclingPowerGarmin** is an ESP32 firmware project designed to convert a standard exercise bike (with manual resistance) into a smart trainer compatible with Garmin watches, Zwift, and other BLE Cycling Power Profile (CPP) FTMS receivers.
-
-The system calculates **Power (Watts)** via a software model that correlates **Cadence (RPM)** and **Resistance Level** (derived from a mechanical position sensor) using a lookup table.
+**CyclingPowerGarmin** is an ESP32 firmware project designed to convert a standard exercise bike
+(with 16 steps of spinning resistance) into a smart trainer compatible with Garmin watches and 
+other BLE Cycling Power Profile (CPP) receivers.
+It is not an FTMS project as Garmin still does not support the standard, so it is axposed as a regular cycling power meter.
+The system estimates **Power (Watts)** via a software model that correlates **Cadence (RPM)** and **Resistance Level** (derived from a mechanical position sensor) using a lookup table.
 
 ## Architecture & Design
 
@@ -39,11 +41,21 @@ Defined in `src/CyclingPowerGarmin.cpp` and `src/BikeComputer.h`:
 
 ## Development & Testing
 
-This project uses **PlatformIO**.
+This project uses **PlatformIO**. It can be istalled like this:
+```bash
+curl -fsSL -o /tmp/get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py
+python3 /tmp/get-platformio.py
+export PATH=$PATH:$HOME/.local/bin
+```
+
+To run tests with coverage lcov also needs to be installed:
+```bash
+sudo apt install lcov -y
+```
 
 ### 1. Build & Upload (Firmware)
 
-To compile and flash the code to the ESP32:
+To compile, test, flash the code to the ESP32:
 
 ```bash
 # Build
@@ -70,3 +82,4 @@ lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' --output-file coverag
 
 # 5. Generate the HTML report
 genhtml coverage_filtered.info --output-directory coverage_report
+```

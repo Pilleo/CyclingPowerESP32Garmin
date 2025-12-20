@@ -1,5 +1,5 @@
 #include <unity.h>
-#include "BlePacketGenerator.h"
+#include "../../src/BlePacketGenerator.h"
 
 void setUp() {
     // No setup needed for static class

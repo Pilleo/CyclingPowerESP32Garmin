@@ -1,7 +1,7 @@
 #ifndef MOCK_BLE_SERVICE_H
 #define MOCK_BLE_SERVICE_H
 
-#include "IBleService.h"
+#include "../../src/IBleService.h"
 
 class MockBleService : public IBleService {
 public:

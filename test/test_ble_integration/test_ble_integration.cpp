@@ -1,9 +1,9 @@
 #include <unity.h>
-#include "BikeComputer.h"
+#include "../../src/BikeComputer.h"
 #include "MockSystemWrapper.h"
 #include "MockBleService.h"
-#include "Cadence.h"
-#include "ResistanceLevel.h"
+#include "../../src/Cadence.h"
+#include "../../src/ResistanceLevel.h"
 #include <new> // For placement new
 
 // Pin definitions matching main code

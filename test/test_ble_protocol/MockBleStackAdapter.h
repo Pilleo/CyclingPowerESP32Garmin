@@ -1,7 +1,7 @@
 #ifndef MOCK_BLE_STACK_ADAPTER_H
 #define MOCK_BLE_STACK_ADAPTER_H
 
-#include "IBleStackAdapter.h"
+#include "../../src/IBleStackAdapter.h"
 #include <string>
 #include <map>
 #include <vector>

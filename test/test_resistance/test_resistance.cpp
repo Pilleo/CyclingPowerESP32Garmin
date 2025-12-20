@@ -1,5 +1,5 @@
-#include <unity.h>
-#include "ResistanceLevel.h"
+
+#include "../../src/ResistanceLevel.h"
 #include "MockSystemWrapper.h"
 
 // Define dummy pins for testing
