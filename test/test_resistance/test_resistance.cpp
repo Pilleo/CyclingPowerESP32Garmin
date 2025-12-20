@@ -1,6 +1,6 @@
-
+#include <unity.h>
 #include "../../src/ResistanceLevel.h"
-#include "MockSystemWrapper.h"
+#include "../common/MockSystemWrapper.h"
 
 // Define dummy pins for testing
 const uint8_t BACKWARDS_PIN = 4;
