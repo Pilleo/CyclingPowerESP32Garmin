@@ -1,4 +1,3 @@
-#ifndef NATIVE_TEST
 //
 // Created by leanid on 26.1.24.
 //
@@ -112,6 +111,6 @@ void BLECyclingPowerService::onConnect() {
 
 void BLECyclingPowerService::onDisconnect() {
     _deviceConnected = false;
+    // Note: We do NOT update _oldDeviceConnected here.
+    // It is updated in updateData() to detect the transition.
 }
-
-#endif
