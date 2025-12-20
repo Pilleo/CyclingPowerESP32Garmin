@@ -1,6 +1,7 @@
 #ifndef RESISTANCE_LEVEL_H
 #define RESISTANCE_LEVEL_H
 
+#include <cstdint>
 #include "SystemWrapper.h"
 
 class ResistanceLevel
@@ -13,6 +14,22 @@ public:
     auto getPositionChangeCounter() const -> uint16_t;
     auto level() -> uint8_t; // Legacy wrapper
 
+    /**
+     * @brief Triggered when the position sensor detects an edge (pulse).
+     * Handles debouncing, direction logic, and counter updates.
+     *
+     * @param timestampMs Current time in milliseconds.
+     * @param isMovingForward True if the Forward pin signals movement.
+     * @param isMovingBack True if the Backward pin signals movement.
+     */
+    void onPositionPulse(uint32_t timestampMs, bool isMovingForward, bool isMovingBack);
+
+    /**
+     * @brief Triggered when the limit switch is active and movement is not forward.
+     * Resets calibration.
+     */
+    void onLimitReset();
+
 private:
     ISystemWrapper& sys;
     const uint8_t limitPin;
@@ -21,13 +38,12 @@ private:
     const uint8_t forwardsPin;
 
     bool oldPositionState;
-    uint8_t currentLevel;
-    uint32_t lastPulseTimestamp;
 
-    // 'prevDirection' from original code
-    bool prevDirectionWasForward;
-
-    uint16_t positionChangeCounter;
+    // Volatile: Accessed by future ISRs
+    volatile uint8_t currentLevel;
+    volatile uint32_t lastPulseTimestamp;
+    volatile bool prevDirectionWasForward;
+    volatile uint16_t positionChangeCounter;
 
     void updateLevelFromCounter();
 

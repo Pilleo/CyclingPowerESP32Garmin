@@ -8,7 +8,6 @@ namespace {
         uint8_t level;
     };
 
-    // Lookup Table replacing the huge if/else chain
     constexpr std::array<LevelRange, 16> LEVEL_RANGES = {{
         {0,   29,    1},
         {170, 190,   2},
@@ -36,8 +35,6 @@ ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limit
     oldPositionState = (sys.digitalRead(positionPin) != 0);
     currentLevel = MIN_LEVEL;
     lastPulseTimestamp = 0;
-    // Original initializes this based on assumption or defaults.
-    // We default to true to match common behavior.
     prevDirectionWasForward = true;
     positionChangeCounter = 0;
 }
@@ -64,55 +61,61 @@ void ResistanceLevel::updateLevelFromCounter() {
     }
 }
 
-void ResistanceLevel::update() {
-    // 1. Read Inputs
-    const bool pinBackRaw = (sys.digitalRead(backwardsPin) != 0);
-    const bool pinForwardRaw = (sys.digitalRead(forwardsPin) != 0);
-    const bool pinPosition = (sys.digitalRead(positionPin) != 0);
-    const bool limitActive = (sys.digitalRead(limitPin) != 0);
+void ResistanceLevel::onLimitReset() {
+    positionChangeCounter = 0;
+    currentLevel = MIN_LEVEL;
+}
 
-    // Derived Direction States (Matches Original)
-    const bool isMovingBack = pinBackRaw && !pinForwardRaw;
-    const bool isMovingForward = pinForwardRaw && !pinBackRaw;
-
-    // 2. Handle Limit Reset (Matches Original isFirstLevel)
-    if (!isMovingForward && limitActive) {
-        positionChangeCounter = 0;
-        currentLevel = MIN_LEVEL;
-    }
-
-    const unsigned long now = sys.millis();
+void ResistanceLevel::onPositionPulse(uint32_t now, bool isMovingForward, bool isMovingBack) {
     const unsigned long sampleTime = now - lastPulseTimestamp;
 
-    // 3. Detect Pulse
-    if (pinPosition != oldPositionState && sampleTime > DEBOUNCE_TIME_MS) {
+    // 1. Debounce Logic
+    if (sampleTime > DEBOUNCE_TIME_MS) {
+        lastPulseTimestamp = now;
 
-        oldPositionState = pinPosition;
-        lastPulseTimestamp = now; // Update timestamp immediately like original
-
-        // Helpers for readability logic
         const bool isConsistent = (sampleTime < MOVEMENT_TIMEOUT_MS);
         const bool isLongPause = (sampleTime > PAUSE_TIMEOUT_MS);
 
-        // 4. Update Counter Logic (Direct translation of Original)
+        // 2. Counter Logic
         if (isMovingForward) {
-            // "if (forward && ((isConsistentMovement && wasInPositiveDirection) || isMovementAfterLongPause))"
             if ((isConsistent && prevDirectionWasForward) || isLongPause) {
                 positionChangeCounter++;
             }
         } else if (positionChangeCounter > 0 && isMovingBack) {
-            // "else if (counter > 0 && back && (isMovementAfterLongPause || (isConsistentMovement && !wasInPositiveDirection)))"
             if (isLongPause || (isConsistent && !prevDirectionWasForward)) {
                 positionChangeCounter--;
             }
         }
 
-        // 5. Update History (Matches Original "prevDirection = forward")
-        // This runs EVERY pulse, regardless of whether counter changed.
-        // If Idle, isMovingForward is false, so history becomes false.
+        // 3. Update History
+        // Note: Logic copied from original. History updates on every accepted pulse.
         prevDirectionWasForward = isMovingForward;
 
-        // 6. Map to Level
+        // 4. Update Level
         updateLevelFromCounter();
+    }
+}
+
+void ResistanceLevel::update() {
+    // 1. Read Inputs (Polling Driver)
+    const bool pinBackRaw = (sys.digitalRead(backwardsPin) != 0);
+    const bool pinForwardRaw = (sys.digitalRead(forwardsPin) != 0);
+    const bool pinPosition = (sys.digitalRead(positionPin) != 0);
+    const bool limitActive = (sys.digitalRead(limitPin) != 0);
+
+    // Derived Direction States
+    const bool isMovingBack = pinBackRaw && !pinForwardRaw;
+    const bool isMovingForward = pinForwardRaw && !pinBackRaw;
+
+    // 2. Handle Limit Reset
+    if (!isMovingForward && limitActive) {
+        onLimitReset();
+    }
+
+    // 3. Detect Edge
+    if (pinPosition != oldPositionState) {
+        oldPositionState = pinPosition;
+        // Delegate logic to Core
+        onPositionPulse(sys.millis(), isMovingForward, isMovingBack);
     }
 }
