@@ -1,9 +1,6 @@
 #ifndef NATIVE_TEST
 // Bluedroid is incompatible with Garmin
 // https://github.com/ihaque/pelomon/blob/main/pelomon/ble_constants.h
-#include "Cadence.h"
-
-#include <ResistanceLevel.h>
 #include <Arduino.h>
 #include <BLECyclingPowerService.h>
 
@@ -53,7 +50,7 @@ namespace {
 #if !defined(EMBEDDED_TEST) && !defined(UNIT_TEST)
 
 void setup() {
-    pinMode(config.ledPin, OUTPUT);
+    pinMode(bikeConfig.ledPin, OUTPUT);
     Serial.begin(serialBaudRate);
     Serial.println("Start");
     computer.setup();

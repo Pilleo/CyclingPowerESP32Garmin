@@ -1,6 +1,9 @@
 #include <unity.h>
 #include "../../src/Power.h" // Power.h contains the implementation
 
+void setUp(void) {}
+void tearDown(void) {}
+
 // Test for Low Cadence Cutoff
 void test_power_low_cadence_cutoff()
 {
