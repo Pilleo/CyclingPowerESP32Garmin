@@ -50,22 +50,59 @@ void ISR_ATTR ResistanceLevel::isrPosition() {
 }
 
 void ResistanceLevel::handlePositionInterrupt() {
-    // 1. Capture Time
+    // 1. Read Position Pin explicitly for reliability
+    // This confirms the interrupt wasn't just a fleeting noise spike.
+    bool currentPos = (sys.digitalRead(positionPin) != 0);
+
+    // 2. State Verification
+    // Even if the ISR fired, check if the state is actually different from the last known state.
+    if (currentPos == oldPositionState) {
+        return; // False alarm or duplicate trigger
+    }
+    oldPositionState = currentPos;
+
+    // 3. Capture Time & Direction
     uint32_t now = sys.millis();
 
-    // 2. Read Direction Pins IMMEDIATELY
-    // We use the system wrapper. On ESP32 this is safe in ISRs.
-    // Ideally, for max speed, you'd use direct register access,
-    // but this is the "Safe and Smooth" refactoring.
+    // Read direction pins immediately to verify context
     bool pinBack = (sys.digitalRead(backwardsPin) != 0);
     bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
 
     bool isMovingBack = pinBack && !pinFwd;
     bool isMovingForward = pinFwd && !pinBack;
 
-    // 3. Delegate to Core Logic
+    // 4. Delegate to Core Logic
     onPositionPulse(now, isMovingForward, isMovingBack);
 }
+// --- MISSING PART START ---
+void ISR_ATTR ResistanceLevel::isrLimit() {
+    if (_instance) {
+        _instance->handleLimitInterrupt();
+    }
+}
+
+void ResistanceLevel::handleLimitInterrupt() {
+    // 1. Verify Limit Pin State (Active High)
+    // If the pin is LOW, it's just noise/bounce, so we return.
+    if (sys.digitalRead(limitPin) == 0) {
+        return;
+    }
+
+    // 2. Verify Direction
+    // We must ONLY reset if we are NOT moving forward.
+    // If we are moving forward and hit the limit, it's a glitch or mechanical overshoot,
+    // and we should NOT reset the level to 1.
+    bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
+    bool pinBack = (sys.digitalRead(backwardsPin) != 0);
+
+    // Logic: Forward if ForwardPin is High AND BackPin is Low
+    bool isMovingForward = pinFwd && !pinBack;
+
+    if (!isMovingForward) {
+        onLimitReset();
+    }
+}
+
 auto ResistanceLevel::level() -> uint8_t {
     return getLevel();
 }

@@ -43,7 +43,9 @@ public:
     void enableInterrupt();
     void handlePositionInterrupt();
     static void ISR_ATTR isrPosition();
-
+    // NEW: ISR for Limit Switch
+    void handleLimitInterrupt();
+    static void ISR_ATTR isrLimit();
 private:
     ISystemWrapper& sys;
     const uint8_t limitPin;
@@ -51,7 +53,7 @@ private:
     const uint8_t positionPin;
     const uint8_t forwardsPin;
 
-    bool oldPositionState;
+    volatile bool oldPositionState;
 
     // Volatile: Accessed by future ISRs
     volatile uint8_t currentLevel;
