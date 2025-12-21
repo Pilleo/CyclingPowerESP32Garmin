@@ -58,29 +58,8 @@ void ResistanceLevel::isrPosition() {
 }
 
 void ResistanceLevel::handlePositionInterrupt() {
-    // 1. Read Position Pin explicitly for reliability
-    // This confirms the interrupt wasn't just a fleeting noise spike.
-    const bool currentPos = (sys.digitalRead(positionPin) != 0);
-
-    // 2. State Verification
-    // Even if the ISR fired, check if the state is actually different from the last known state.
-    if (currentPos == oldPositionState) {
-        return; // False alarm or duplicate trigger
-    }
-    oldPositionState = currentPos;
-
-    // 3. Capture Time & Direction
-    const uint32_t now = sys.millis();
-
-    // Read direction pins immediately to verify context
-    const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
-    const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
-
-    const bool isMovingBack = pinBack && !pinFwd;
-    const bool isMovingForward = pinFwd && !pinBack;
-
-    // 4. Delegate to Core Logic
-    onPositionPulse(now, isMovingForward, isMovingBack);
+    _lastPositionInterruptTime = sys.millis();
+    _positionInterruptFlag = true;
 }
 
 void ResistanceLevel::isrLimit() {
@@ -90,26 +69,45 @@ void ResistanceLevel::isrLimit() {
 }
 
 void ResistanceLevel::handleLimitInterrupt() {
-    // 1. Verify Limit Pin State (Active High)
-    // If the pin is LOW, it's just noise/bounce, so we return.
-    if (sys.digitalRead(limitPin) == 0) {
-        return;
+    _limitInterruptFlag = true;
+}
+
+void ResistanceLevel::update() {
+    if (_limitInterruptFlag) {
+        sys.disableInterrupts();
+        _limitInterruptFlag = false;
+        sys.enableInterrupts();
+
+        const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
+        const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
+        const bool isMovingForward = pinFwd && !pinBack;
+
+        if (!isMovingForward && sys.digitalRead(limitPin) != 0) {
+            onLimitReset();
+        }
     }
 
-    // 2. Verify Direction
-    // We must ONLY reset if we are NOT moving forward.
-    // If we are moving forward and hit the limit, it's a glitch or mechanical overshoot,
-    // and we should NOT reset the level to 1.
-    const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
-    const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
+    if (_positionInterruptFlag) {
+        uint32_t interruptTime;
+        sys.disableInterrupts();
+        _positionInterruptFlag = false;
+        interruptTime = _lastPositionInterruptTime;
+        sys.enableInterrupts();
 
-    // Logic: Forward if ForwardPin is High AND BackPin is Low
-    const bool isMovingForward = pinFwd && !pinBack;
+        const bool currentPos = (sys.digitalRead(positionPin) != 0);
+        if (currentPos != oldPositionState) {
+            oldPositionState = currentPos;
 
-    if (!isMovingForward) {
-        onLimitReset();
+            const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
+            const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
+            const bool isMovingBack = pinBack && !pinFwd;
+            const bool isMovingForward = pinFwd && !pinBack;
+
+            onPositionPulse(interruptTime, isMovingForward, isMovingBack);
+        }
     }
 }
+
 
 auto ResistanceLevel::level() const -> uint8_t {
     return getLevel();

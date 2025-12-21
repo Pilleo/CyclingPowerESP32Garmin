@@ -22,6 +22,9 @@ void setUp(void) {
 
     resistanceLevelInstance = new ResistanceLevel(PINS, mockSys);
     resistanceLevelInstance->begin(); // Initialize hardware state
+    resistanceLevelInstance->enableInterrupt();
+    mockSys.attachInterrupt(PINS.position, ResistanceLevel::isrPosition, CHANGE);
+    mockSys.attachInterrupt(PINS.limit, ResistanceLevel::isrLimit, RISING);
 }
 
 void tearDown(void) {
@@ -36,11 +39,12 @@ void simulate_position_change(unsigned long &time) {
     time += 10;
     mockSys.setMillis(time);
 
-    // Toggle the position pin state and call level() to process the change
+    // Toggle the position pin state, which triggers the mock ISR
     bool currentState = mockSys.digitalRead(PINS.position);
     mockSys.setPinState(PINS.position, !currentState);
-    resistanceLevelInstance->poll();
-    resistanceLevelInstance->level();
+
+    // Call update() to process the interrupt flag
+    resistanceLevelInstance->update();
 }
 
 // ==========================================
@@ -67,11 +71,11 @@ void test_resistance_limit_switch_reset() {
     mockSys.setPinState(PINS.backwards, true);
     mockSys.setPinState(PINS.forwards, false);
 
-    // 3. Simulate limitPin going HIGH
+    // 3. Simulate limitPin going HIGH, which triggers the mock ISR
     mockSys.setPinState(PINS.limit, true);
 
-    // 4. Call level() which triggers the check
-    resistanceLevelInstance->poll();
+    // 4. Call update() to process the interrupt flag
+    resistanceLevelInstance->update();
     // 5. Assert that level is reset to 1
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
 
@@ -82,7 +86,7 @@ void test_resistance_limit_switch_reset() {
     for (int i = 0; i < 50; ++i) {
         simulate_position_change(time);
     }
-    resistanceLevelInstance->poll();
+    resistanceLevelInstance->update();
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
 }
 
@@ -268,8 +272,7 @@ void test_limit_switch_ignored_while_forward() {
     mockSys.setPinState(PINS.limit, true);
 
     // 3. Call update
-    resistanceLevelInstance->poll();
-    resistanceLevelInstance->level();
+    resistanceLevelInstance->update();
 
     // 4. Assert NO reset
     TEST_ASSERT_EQUAL_MESSAGE(10, resistanceLevelInstance->getPositionChangeCounter(), "Limit switch should be ignored when moving forward");
@@ -318,8 +321,7 @@ void test_backward_stability_and_hysteresis() {
     mockSys.setPinState(PINS.forwards, false);
 
     // Simulate a loop cycle without pulse to flush state
-    resistanceLevelInstance->poll();
-    resistanceLevelInstance->level();
+    resistanceLevelInstance->update();
 
     // 5. RESUME BACKWARD (FAST)
     // Since history was reset to False during idle, a fast backward pulse
@@ -606,8 +608,7 @@ void test_resistance_noisy_transition_baseline() {
     time += 30;
     mockSys.setMillis(time);
     mockSys.setPinState(PINS.position, targetState);
-    resistanceLevelInstance->poll();
-    resistanceLevelInstance->level(); // Process valid edge
+    resistanceLevelInstance->update();
 
     // 2. Bounce (Revert to old state) - 2ms later
     // Delta = 2ms. Logic: 2ms < 8ms (DEBOUNCE_TIME_MS). Ignored.

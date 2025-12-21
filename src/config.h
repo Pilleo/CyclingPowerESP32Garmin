@@ -6,7 +6,7 @@
 
 // --- SENSOR MODE ---
 // Define as 1 to use interrupts for sensor readings, 0 to use polling.
-#define USE_INTERRUPTS 0
+#define USE_INTERRUPTS 1
 
 // --- PINOUT CONFIGURATION ---
 constexpr uint8_t PIN_CADENCE = 15;

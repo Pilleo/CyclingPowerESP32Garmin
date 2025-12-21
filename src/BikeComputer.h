@@ -63,9 +63,10 @@ public:
 
     void update() {
 #if !USE_INTERRUPTS
-        // When using interrupts, we don't need to poll the sensors.
         _cadence.poll();
         _resistance.poll();
+#else
+        _resistance.update();
 #endif
         const int16_t cad = _cadence.cadence();
 
