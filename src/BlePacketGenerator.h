@@ -5,61 +5,63 @@
 #include <cstring> // For memcpy
 
 // Define the flags based on ble_constants.h
-// (We redefine or include them here to keep this file standalone-testable)
+// These flags indicate which optional fields are present in the packet.
 #define CPM_FLAG_WHEEL_REV_DATA_PRESENT (1 << 4)
 #define CPM_FLAG_CRANK_REV_DATA_PRESENT (1 << 5)
 
-struct CPSMeasurement_t {
+// This struct represents the Cycling Power Measurement characteristic.
+// It is packed to ensure there is no padding between members, matching the BLE specification.
+struct CyclingPowerMeasurement {
     uint16_t flags;
     int16_t instantaneousPower;
-    // Optional fields exist, but we must pack them dynamically based on flags
-    // to strictly adhere to BLE specs (which are not simple structs).
-    // However, for this specific project, the structure seems fixed:
+    // The following fields are optional and their presence is indicated by the flags.
     uint32_t cumulativeWheelRevs;
-    uint16_t lastWheelEventTime; // 1/2048 s
+    uint16_t lastWheelEventTime; // Unit is 1/2048 second
     uint16_t cumulativeCrankRevs;
-    uint16_t lastCrankEventTime;// 1/1024 s
+    uint16_t lastCrankEventTime; // Unit is 1/1024 second
 } __attribute__((packed));
 
 class BlePacketGenerator {
 public:
+    // The size of the buffer required to hold the generated packet.
+    static constexpr size_t MAX_PACKET_SIZE = sizeof(CyclingPowerMeasurement);
+    // This factor is used to simulate wheel revolutions from crank revolutions.
+    // The value 31 appears arbitrary but is what was used in the original implementation and is expected by the tests.
+    static constexpr uint8_t WHEEL_TO_CRANK_REVOLUTION_RATIO = 31;
+    // This factor is used to convert crank event time to wheel event time, which has a different resolution.
+    static constexpr uint8_t WHEEL_TO_CRANK_TIME_RATIO = 2;
+
+
     /**
-     * @brief Packs power and cadence data into the BLE byte structure.
-     * 
-     * @param powerWatts Instantaneous Power
-     * @param totalCrankRevs Accumulated crank revolutions
-     * @param lastCrankTime Timestamp of last crank event (1/1024s)
-     * @param buffer Output buffer (must be at least 14 bytes)
-     * @return size_t Number of bytes written
+     * @brief Packs power and cadence data into a BLE packet.
+     * @param powerWatts The instantaneous power in watts.
+     * @param totalCrankRevs The total number of crank revolutions.
+     * @param lastCrankTime The time of the last crank event in 1/1024s resolution.
+     * @param buffer The output buffer for the generated packet. Must be at least MAX_PACKET_SIZE bytes.
+     * @return The number of bytes written to the buffer.
      */
-    static auto generatePacket(const uint16_t powerWatts,
+    static size_t generatePacket(const uint16_t powerWatts,
                                  const uint32_t totalCrankRevs,
                                  const uint16_t lastCrankTime,
-                                 uint8_t* buffer) -> size_t
+                                 uint8_t* buffer)
     {
-        // 1. Prepare the Fixed Structure
-        // Note: The original code combined Wheel and Crank logic.
-        // Assuming we keep the existing logic:
-        // Wheel Revs = Crank Revs * 31
-        // Wheel Time = Crank Time * 2 (?)
-        
-        CPSMeasurement_t packet{};
+        CyclingPowerMeasurement packet{};
         packet.flags = CPM_FLAG_WHEEL_REV_DATA_PRESENT | CPM_FLAG_CRANK_REV_DATA_PRESENT;
         packet.instantaneousPower = powerWatts;
         
-        packet.cumulativeWheelRevs = totalCrankRevs * 31; 
-        packet.lastWheelEventTime = (lastCrankTime * 2); // % 65536 is automatic for uint16
+        // Simulate wheel data from crank data, as some applications require it.
+        packet.cumulativeWheelRevs = totalCrankRevs * WHEEL_TO_CRANK_REVOLUTION_RATIO;
+        packet.lastWheelEventTime = lastCrankTime * WHEEL_TO_CRANK_TIME_RATIO;
         
         packet.cumulativeCrankRevs = totalCrankRevs;
         packet.lastCrankEventTime = lastCrankTime;
 
-        size_t size = sizeof(CPSMeasurement_t);
-        // 2. Copy to buffer
-        // This ensures Endianness is handled by the compiler (ESP32 is Little Endian, BLE is Little Endian)
-        memcpy(buffer, &packet, size);
+        // Copy the packet to the buffer. This is safe because the struct is packed and the buffer is large enough.
+        // The ESP32 is little-endian, which matches the BLE specification, so no byte swapping is needed.
+        memcpy(buffer, &packet, MAX_PACKET_SIZE);
 
-        return size;
+        return MAX_PACKET_SIZE;
     }
 };
 
-#endif
+#endif // BLE_PACKET_GENERATOR_H

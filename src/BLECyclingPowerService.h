@@ -13,29 +13,32 @@
 #include "IBleStackAdapter.h"
 
 class BLECyclingPowerService : public IBleService, public IBleStackAdapter::Callbacks {
+private:
     IBleStackAdapter& _bleStack;
 
-    IBleStackAdapter::CharHandle _hPowerMeas = nullptr;
-    IBleStackAdapter::CharHandle _hFeature = nullptr;
-    IBleStackAdapter::CharHandle _hSensorLoc = nullptr;
-    IBleStackAdapter::CharHandle _hBattery = nullptr;
+    // Characteristic handles
+    IBleStackAdapter::CharHandle _powerMeasurementCharacteristic = nullptr;
+    IBleStackAdapter::CharHandle _featureCharacteristic = nullptr;
+    IBleStackAdapter::CharHandle _sensorLocationCharacteristic = nullptr;
+    IBleStackAdapter::CharHandle _batteryLevelCharacteristic = nullptr;
 
     bool _deviceConnected = false;
-    bool _oldDeviceConnected = false;
+
+    // Private helper methods for setup
+    void setupPowerService();
+    void setupBatteryService();
+    void setupAdvertising();
 
 public:
     explicit BLECyclingPowerService(IBleStackAdapter& bleStack);
 
     void start() override;
-    void updateData(uint16_t power, uint32_t revs, uint16_t timestamp) override;
+    void updateData(uint16_t power, uint32_t totalRevolutions, uint16_t crankEventTime) override;
     bool isConnected() override;
 
     // IBleStackAdapter::Callbacks implementation
     void onConnect() override;
     void onDisconnect() override;
-
-    // Deprecated static methods removed or kept as wrappers if absolutely necessary
-    // For now, removing them to enforce new architecture.
 };
 
 #endif //BLEPOWERSERVICE_H
