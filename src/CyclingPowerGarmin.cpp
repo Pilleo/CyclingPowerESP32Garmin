@@ -10,31 +10,22 @@
 #include "SystemWrapper.h"
 #include "BikeComputer.h"
 #include "NimBleStackAdapter.h"
+#include "config.h"
 
 namespace {
-    constexpr ResistanceLevelPins resistancePins = {
-        .backwards = 4,
-        .limit = 18,
-        .position = 23,
-        .forwards = 19
-    };
-    constexpr uint8_t cadencePin = 15;
-    constexpr uint8_t ledPin = 27;
-    constexpr uint32_t serialBaudRate = 115200;
-
     ArduinoSystemWrapper sys;
-    ResistanceLevel lvl(resistancePins, sys);
-    Cadence freq(cadencePin, sys);
+    ResistanceLevel lvl(RESISTANCE_PINS, sys);
+    Cadence freq(PIN_CADENCE, sys);
     NimBleStackAdapter bleAdapter;
     BLECyclingPowerService bleService(bleAdapter);
     BikeComputerConfig config = {
-        .ledPin = ledPin,
-        .wakeupPin = cadencePin,
-        .cadencePin = cadencePin,
-        .resPositionPin = resistancePins.position,
-        .resMinLevelLimitPin = resistancePins.limit,
-        .resBackwardsDirectionIndicatorPin = resistancePins.backwards,
-        .resForwardDirectionIndicatorPin = resistancePins.forwards
+        .ledPin = PIN_LED,
+        .wakeupPin = PIN_WAKEUP,
+        .cadencePin = PIN_CADENCE,
+        .resPositionPin = RESISTANCE_PINS.position,
+        .resMinLevelLimitPin = RESISTANCE_PINS.limit,
+        .resBackwardsDirectionIndicatorPin = RESISTANCE_PINS.backwards,
+        .resForwardDirectionIndicatorPin = RESISTANCE_PINS.forwards
     };
     BikeComputer computer(sys, freq, lvl, bleService, config);
 }
@@ -45,7 +36,7 @@ namespace {
 
 void setup() {
     pinMode(config.ledPin, OUTPUT);
-    Serial.begin(serialBaudRate);
+    Serial.begin(SERIAL_BAUD_RATE);
     Serial.println("Start");
     computer.setup();
 }

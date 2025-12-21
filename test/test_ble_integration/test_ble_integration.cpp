@@ -5,14 +5,7 @@
 #include "../../src/Cadence.h"
 #include "../../src/ResistanceLevel.h"
 #include <new> // For placement new
-
-// Pin definitions matching main code
-static constexpr uint8_t PIN_CADENCE = 15;
-static constexpr uint8_t PIN_BACK = 4;
-static constexpr uint8_t PIN_LIMIT = 18;
-static constexpr uint8_t PIN_FWD = 19;
-static constexpr uint8_t PIN_POS = 23;
-static constexpr uint8_t PIN_LED = 27;
+#include "../../src/config.h"
 
 // Global instances for testing
 MockSystemWrapper mockSys;
@@ -30,10 +23,10 @@ void setUp() {
     mockSys.reset();
     // Reset pins to default states
     mockSys.setPinState(PIN_CADENCE, true);
-    mockSys.setPinState(PIN_BACK, false);
-    mockSys.setPinState(PIN_LIMIT, false);
-    mockSys.setPinState(PIN_FWD, false);
-    mockSys.setPinState(PIN_POS, true);
+    mockSys.setPinState(RESISTANCE_PINS.backwards, false);
+    mockSys.setPinState(RESISTANCE_PINS.limit, false);
+    mockSys.setPinState(RESISTANCE_PINS.forwards, false);
+    mockSys.setPinState(RESISTANCE_PINS.position, true);
 
     mockBle.lastPowerSent = 0;
     mockBle.lastRevsSent = 0;
@@ -44,17 +37,17 @@ void setUp() {
 
     // Re-construct objects to reset their internal state
     realCadence = new (cadenceBuffer) Cadence(PIN_CADENCE, mockSys);
-    realResistance = new (resistanceBuffer) ResistanceLevel({PIN_BACK, PIN_LIMIT, PIN_POS, PIN_FWD}, mockSys);
+    realResistance = new (resistanceBuffer) ResistanceLevel(RESISTANCE_PINS, mockSys);
 
     // NEW: Create a config that matches the test pins
     BikeComputerConfig testConfig = {
         .ledPin = PIN_LED,
         .wakeupPin = PIN_CADENCE,
         .cadencePin = PIN_CADENCE,
-        .resPositionPin = PIN_POS,
-        .resMinLevelLimitPin = PIN_LIMIT,
-        .resBackwardsDirectionIndicatorPin = PIN_BACK,
-        .resForwardDirectionIndicatorPin = PIN_FWD
+        .resPositionPin = RESISTANCE_PINS.position,
+        .resMinLevelLimitPin = RESISTANCE_PINS.limit,
+        .resBackwardsDirectionIndicatorPin = RESISTANCE_PINS.backwards,
+        .resForwardDirectionIndicatorPin = RESISTANCE_PINS.forwards
     };
 
     // Pass the config to the constructor
@@ -84,26 +77,26 @@ void simulateCadencePulse(uint32_t durationMs) {
 // Helper to simulate resistance change
 void simulateResistanceLevelChange(int targetLevel) {
     // Set Forward Pin HIGH
-    mockSys.setPinState(PIN_FWD, true);
-    mockSys.setPinState(PIN_BACK, false);
+    mockSys.setPinState(RESISTANCE_PINS.forwards, true);
+    mockSys.setPinState(RESISTANCE_PINS.backwards, false);
 
     // We need ~415 counts for Level 5.
     int targetLoops = 208;
 
     for (int i = 0; i < targetLoops; i++) {
         // Toggle Position Pin (Edge 1) -> ISR Triggered
-        mockSys.setPinState(PIN_POS, false);
+        mockSys.setPinState(RESISTANCE_PINS.position, false);
         mockSys.advanceTime(10);
         computer->update();
 
         // Toggle Position Pin (Edge 2) -> ISR Triggered
-        mockSys.setPinState(PIN_POS, true);
+        mockSys.setPinState(RESISTANCE_PINS.position, true);
         mockSys.advanceTime(10);
         computer->update();
     }
 
     // Stop moving
-    mockSys.setPinState(PIN_FWD, false);
+    mockSys.setPinState(RESISTANCE_PINS.forwards, false);
     computer->update();
 }
 
