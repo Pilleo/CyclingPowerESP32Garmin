@@ -66,6 +66,9 @@ void test_resistance_isr_bridge() {
     // 4. Trigger ISR Bridge
     ResistanceLevel::isrPosition();
 
+    // 4.5. Process the interrupt flag
+    res2.update();
+
     // 5. Verify
     TEST_ASSERT_EQUAL(1, res2.getPositionChangeCounter());
 }
@@ -90,12 +93,16 @@ void test_resistance_limit_isr_bridge() {
 
     ResistanceLevel::isrLimit();
 
+    // Process the flag - should be ignored
+    res.update();
+
     TEST_ASSERT_EQUAL_MESSAGE(1, res.getPositionChangeCounter(), "Should ignore limit switch while moving forward");
 
     // 4. Case B: Trigger Limit while Idle (Should RESET)
     mockSysBridge.setPinState(12, false); // Fwd = Low
 
     ResistanceLevel::isrLimit();
+    res.update(); // Process the flag - should reset
 
     TEST_ASSERT_EQUAL_MESSAGE(0, res.getPositionChangeCounter(), "Should reset counter when limit hit and not moving forward");
 }

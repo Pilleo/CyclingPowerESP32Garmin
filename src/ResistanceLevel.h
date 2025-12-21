@@ -62,6 +62,8 @@ public:
 
     static void isrLimit() ISR_ATTR;
 
+    void update();
+
 private:
     ISystemWrapper &sys;
     const uint8_t limitPin;
@@ -76,6 +78,10 @@ private:
     volatile uint32_t lastPulseTimestamp;
     volatile bool prevDirectionWasForward;
     volatile uint16_t positionChangeCounter;
+    volatile bool _limitInterruptFlag = false;
+    volatile bool _positionInterruptFlag = false;
+    volatile uint32_t _lastPositionInterruptTime = 0;
+
 
     void updateLevelFromCounter();
 
