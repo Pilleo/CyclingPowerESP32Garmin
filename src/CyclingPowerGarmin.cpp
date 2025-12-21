@@ -58,11 +58,15 @@ void setup() {
 
 void loop() {
     computer.update();
-    Serial.print("Resistance Level: ");
-    Serial.print(resistanceLogic.level());
-    Serial.print(", Position Counter: ");
-    Serial.println(resistanceLogic.getPositionChangeCounter());
-    delay(100);
+    static unsigned long lastLogTime = 0;
+    unsigned long now = millis();
+    if (now - lastLogTime > 500) {
+        lastLogTime = now;
+        Serial.print("Resistance Level: ");
+        Serial.print(resistanceLogic.level());
+        Serial.print(", Position Counter: ");
+        Serial.println(resistanceLogic.getPositionChangeCounter());
+    }
 }
 
 #endif

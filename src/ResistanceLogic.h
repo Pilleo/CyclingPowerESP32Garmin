@@ -43,7 +43,7 @@ private:
 
     static constexpr uint8_t MIN_LEVEL = 1;
     static constexpr unsigned long DEBOUNCE_TIME_MS = 8;
-    static constexpr unsigned long MOVEMENT_TIMEOUT_MS = 650;
+    static constexpr unsigned long MOVEMENT_TIMEOUT_MS = 50;
     static constexpr unsigned long PAUSE_TIMEOUT_MS = 1700;
 };
 

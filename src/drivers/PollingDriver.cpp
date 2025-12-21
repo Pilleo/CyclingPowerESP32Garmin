@@ -1,4 +1,5 @@
 #include "PollingDriver.h"
+#include <cstdio>
 
 PollingDriver::PollingDriver(ISystemWrapper& sys, uint8_t pin)
     : _sys(sys),
@@ -17,6 +18,7 @@ void PollingDriver::update() {
         _lastState = currentState;
         _eventCount++;
         _lastEventTime = _sys.millis();
+        printf("PollingDriver: event detected, count=%u\n", _eventCount);
     }
 }
 

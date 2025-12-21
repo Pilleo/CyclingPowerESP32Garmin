@@ -1,6 +1,7 @@
 #include "ResistanceLogic.h"
 #include <algorithm>
 #include <array>
+#include <cstdio>
 
 namespace {
 struct LevelRange {
@@ -44,8 +45,6 @@ ResistanceLogic::ResistanceLogic(const ResistanceLogicPins& pins, ISensorDriver&
 void ResistanceLogic::begin() {
     _positionDriver.begin();
     _lastKnownEventCount = _positionDriver.getEventCount();
-    // Initialize lastPulseTimestamp to a value that ensures the first pulse is treated as a long pause
-    _lastPulseTimestamp = _sys.millis() - PAUSE_TIMEOUT_MS - 1;
 }
 
 auto ResistanceLogic::level() const -> uint8_t {
@@ -81,6 +80,8 @@ void ResistanceLogic::handlePositionPulse(const uint32_t timestampMs, const bool
         const bool isConsistent = (sampleTime < MOVEMENT_TIMEOUT_MS);
         const bool isLongPause = (sampleTime > PAUSE_TIMEOUT_MS);
 
+        printf("ResistanceLogic: sampleTime=%lu, isConsistent=%d, isLongPause=%d, counter=%u\n", sampleTime, isConsistent, isLongPause, _positionChangeCounter);
+
         if (isMovingForward) {
             if ((isConsistent && _prevDirectionWasForward) || isLongPause) {
                 _positionChangeCounter++;
@@ -97,10 +98,8 @@ void ResistanceLogic::handlePositionPulse(const uint32_t timestampMs, const bool
 }
 
 void ResistanceLogic::update() {
-    // Update the underlying driver
     _positionDriver.update();
 
-    // Read direction and limit pins
     const bool pinBackRaw = (_sys.digitalRead(_backwardsPin) != 0);
     const bool pinForwardRaw = (_sys.digitalRead(_forwardsPin) != 0);
     const bool limitActive = (_sys.digitalRead(_limitPin) != 0);
@@ -112,9 +111,9 @@ void ResistanceLogic::update() {
         onLimitReset();
     }
 
-    // Check for new events from the driver
     uint32_t currentEventCount = _positionDriver.getEventCount();
     if (currentEventCount != _lastKnownEventCount) {
+        printf("ResistanceLogic: event received, old_count=%u, new_count=%u\n", _lastKnownEventCount, currentEventCount);
         _lastKnownEventCount = currentEventCount;
         handlePositionPulse(_positionDriver.getLastEventTime(), isMovingForward, isMovingBack);
     }
