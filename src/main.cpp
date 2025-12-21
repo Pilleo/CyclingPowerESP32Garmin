@@ -58,6 +58,11 @@ void setup() {
 
 void loop() {
     computer.update();
+    Serial.print("Resistance Level: ");
+    Serial.print(resistanceLogic.level());
+    Serial.print(", Position Counter: ");
+    Serial.println(resistanceLogic.getPositionChangeCounter());
+    delay(100);
 }
 
 #endif

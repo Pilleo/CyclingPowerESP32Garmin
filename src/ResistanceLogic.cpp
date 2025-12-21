@@ -44,6 +44,8 @@ ResistanceLogic::ResistanceLogic(const ResistanceLogicPins& pins, ISensorDriver&
 void ResistanceLogic::begin() {
     _positionDriver.begin();
     _lastKnownEventCount = _positionDriver.getEventCount();
+    // Initialize lastPulseTimestamp to a value that ensures the first pulse is treated as a long pause
+    _lastPulseTimestamp = _sys.millis() - PAUSE_TIMEOUT_MS - 1;
 }
 
 auto ResistanceLogic::level() const -> uint8_t {
@@ -70,8 +72,12 @@ void ResistanceLogic::onLimitReset() {
     _currentLevel = MIN_LEVEL;
 }
 
+#include <iostream>
+
 void ResistanceLogic::handlePositionPulse(const uint32_t timestampMs, const bool isMovingForward, const bool isMovingBack) {
     const unsigned long sampleTime = timestampMs - _lastPulseTimestamp;
+
+    std::cerr << "handlePositionPulse: ts=" << timestampMs << ", fwd=" << isMovingForward << ", back=" << isMovingBack << ", sampleTime=" << sampleTime << std::endl;
 
     if (sampleTime > DEBOUNCE_TIME_MS) {
         _lastPulseTimestamp = timestampMs;
@@ -79,13 +85,17 @@ void ResistanceLogic::handlePositionPulse(const uint32_t timestampMs, const bool
         const bool isConsistent = (sampleTime < MOVEMENT_TIMEOUT_MS);
         const bool isLongPause = (sampleTime > PAUSE_TIMEOUT_MS);
 
+        std::cerr << "isConsistent=" << isConsistent << ", isLongPause=" << isLongPause << ", _prevDirectionWasForward=" << _prevDirectionWasForward << ", _positionChangeCounter=" << _positionChangeCounter << std::endl;
+
         if (isMovingForward) {
             if ((isConsistent && _prevDirectionWasForward) || isLongPause) {
                 _positionChangeCounter++;
+                std::cerr << "Incrementing counter to " << _positionChangeCounter << std::endl;
             }
         } else if (_positionChangeCounter > 0 && isMovingBack) {
             if (isLongPause || (isConsistent && !_prevDirectionWasForward)) {
                 _positionChangeCounter--;
+                std::cerr << "Decrementing counter to " << _positionChangeCounter << std::endl;
             }
         }
 

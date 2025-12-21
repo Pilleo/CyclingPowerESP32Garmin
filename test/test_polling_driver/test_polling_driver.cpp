@@ -61,22 +61,22 @@ void test_polling_driver_multiple_events() {
     driver.begin();
 
     mockSys.ms = 100;
-    mockSys.pinStates[TEST_PIN] = 0; // Event 1
+    mockSys.pinStates[TEST_PIN] = 0; // Event 1 (Falling)
     driver.update();
 
     mockSys.ms = 150;
-    mockSys.pinStates[TEST_PIN] = 1; // Go high
+    mockSys.pinStates[TEST_PIN] = 1; // Event 2 (Rising)
     driver.update();
 
     mockSys.ms = 200;
-    mockSys.pinStates[TEST_PIN] = 0; // Event 2
+    mockSys.pinStates[TEST_PIN] = 0; // Event 3 (Falling)
     driver.update();
 
-    TEST_ASSERT_EQUAL(2, driver.getEventCount());
+    TEST_ASSERT_EQUAL(3, driver.getEventCount());
     TEST_ASSERT_EQUAL(200, driver.getLastEventTime());
 }
 
-void test_polling_driver_ignores_rising_edge() {
+void test_polling_driver_counts_rising_edge() {
     MockSystemWrapper mockSys(10);
     mockSys.pinStates[TEST_PIN] = 0; // Start low
     PollingDriver driver(mockSys, TEST_PIN);
@@ -86,7 +86,8 @@ void test_polling_driver_ignores_rising_edge() {
     mockSys.pinStates[TEST_PIN] = 1; // Go high
     driver.update();
 
-    TEST_ASSERT_EQUAL(0, driver.getEventCount());
+    TEST_ASSERT_EQUAL(1, driver.getEventCount());
+    TEST_ASSERT_EQUAL(100, driver.getLastEventTime());
 }
 
 void setUp(void) {}
@@ -98,7 +99,7 @@ int main() {
     RUN_TEST(test_polling_driver_no_change);
     RUN_TEST(test_polling_driver_single_falling_edge);
     RUN_TEST(test_polling_driver_multiple_events);
-    RUN_TEST(test_polling_driver_ignores_rising_edge);
+    RUN_TEST(test_polling_driver_counts_rising_edge);
     UNITY_END();
     return 0;
 }

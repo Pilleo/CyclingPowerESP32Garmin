@@ -38,13 +38,9 @@ MockBleService mockBle;
 MockSensorDriver mockCadenceDriver;
 MockSensorDriver mockResistanceDriver;
 
-uint8_t cadenceBuffer[sizeof(CadenceLogic)];
-uint8_t resistanceBuffer[sizeof(ResistanceLogic)];
-uint8_t computerBuffer[sizeof(BikeComputer)];
-
-CadenceLogic* realCadence;
-ResistanceLogic* realResistance;
-BikeComputer* computer;
+CadenceLogic* realCadence = nullptr;
+ResistanceLogic* realResistance = nullptr;
+BikeComputer* computer = nullptr;
 
 void setUp() {
     mockSys.reset();
@@ -60,8 +56,8 @@ void setUp() {
     mockBle.startCalled = false;
     mockBle.callCount = 0;
 
-    realCadence = new (cadenceBuffer) CadenceLogic(mockCadenceDriver, mockSys);
-    realResistance = new (resistanceBuffer) ResistanceLogic({PIN_BACK, PIN_LIMIT, PIN_FWD}, mockResistanceDriver, mockSys);
+    realCadence = new CadenceLogic(mockCadenceDriver, mockSys);
+    realResistance = new ResistanceLogic({PIN_BACK, PIN_LIMIT, PIN_FWD}, mockResistanceDriver, mockSys);
 
     BikeComputerConfig testConfig = {
         .ledPin = PIN_LED,
@@ -73,11 +69,15 @@ void setUp() {
         .resForwardDirectionIndicatorPin = PIN_FWD
     };
 
-    computer = new (computerBuffer) BikeComputer(mockSys, *realCadence, *realResistance, mockBle, testConfig);
+    computer = new BikeComputer(mockSys, *realCadence, *realResistance, mockBle, testConfig);
     computer->setup();
 }
 
-void tearDown() {}
+void tearDown() {
+    delete computer;
+    delete realResistance;
+    delete realCadence;
+}
 
 void simulate_rpm(int rpm, int duration_ms) {
     if (rpm == 0) {
@@ -133,10 +133,46 @@ void test_ble_rate_limiting() {
     TEST_ASSERT_INT_WITHIN(1, 2, mockBle.callCount);
 }
 
+void simulateResistanceLevelChange(int targetLevel) {
+    mockSys.setPinState(PIN_FWD, true);
+    mockSys.setPinState(PIN_BACK, false);
+
+    int pulses_needed = 0;
+    if (targetLevel == 5) {
+        pulses_needed = 420; // Target the middle of the range for level 5 (411-429)
+    }
+
+    for (int i = 0; i < pulses_needed; i++) {
+        mockSys.advanceTime(20); // Simulate time between pulses
+        mockResistanceDriver.triggerPulse(mockSys.millis());
+        computer->update();
+    }
+
+    mockSys.setPinState(PIN_FWD, false);
+    computer->update();
+
+    TEST_ASSERT_EQUAL(5, realResistance->level());
+}
+
+void test_resistance_data_pipeline() {
+    // 1. Simulate Resistance Level 5
+    simulateResistanceLevelChange(5);
+
+    // 2. Simulate 90 RPM
+    simulate_rpm(90, 5000);
+
+    // 3. Assertions
+    TEST_ASSERT_TRUE(mockBle.notifyCalled);
+
+    // At Level 5 and 90 RPM, expected power is ~247W.
+    TEST_ASSERT_INT_WITHIN(10, 247, mockBle.lastPowerSent);
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_full_data_flow);
     RUN_TEST(test_system_sleeps_after_timeout);
     RUN_TEST(test_ble_rate_limiting);
+    RUN_TEST(test_resistance_data_pipeline);
     return UNITY_END();
 }

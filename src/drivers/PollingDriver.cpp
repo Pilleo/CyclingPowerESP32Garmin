@@ -15,11 +15,8 @@ void PollingDriver::update() {
     bool currentState = (_sys.digitalRead(_pin) != 0);
     if (_lastState != currentState) {
         _lastState = currentState;
-        // Detect falling edge, assuming active-low sensor
-        if (!currentState) {
-            _eventCount++;
-            _lastEventTime = _sys.millis();
-        }
+        _eventCount++;
+        _lastEventTime = _sys.millis();
     }
 }
 
