@@ -11,6 +11,11 @@
 struct BikeComputerConfig {
     uint8_t ledPin;
     uint8_t wakeupPin;
+    uint8_t cadencePin;
+    uint8_t resPositionPin;//This pin is blinking a lot when resistance is changing
+    uint8_t resMinLevelLimitPin;//active when resistance is in min state
+    uint8_t resBackwardsDirectionIndicatorPin; // supposed to change state rare
+    uint8_t resForwardDirectionIndicatorPin;   // supposed to change state rare
 };
 
 class BikeComputer {
@@ -35,8 +40,21 @@ public:
     void setup() {
         _led.setup();
         _bleService.start();
-    }
+     //   setupInterrupts();
 
+    }
+    void setupInterrupts() {
+        _cadence.enableInterrupt();
+        _resistance.enableInterrupt();
+
+        // Attach interrupts using the config
+        _sys.attachInterrupt(_config.cadencePin, Cadence::isr, FALLING);
+        _sys.attachInterrupt(_config.resPositionPin, ResistanceLevel::isrPosition, CHANGE);
+        _sys.attachInterrupt(_config.resMinLevelLimitPin, ResistanceLevel::isrLimit, RISING);
+
+        // Note: resBackwardsPin and resForwardPin are not attached here,
+        // but they are now documented in the config object.
+    }
     void update() {
         // POLL SENSORS (New Step)
         // When you switch to Interrupts, you will just comment these two lines out!
@@ -51,6 +69,14 @@ public:
         const uint8_t l = _resistance.level();
         if (lastLevel != l)
         {
+#ifndef NATIVE_TEST
+            // Print Level and the raw Counter value to help debug
+            Serial.print("RESISTANCE CHANGE: Level ");
+            Serial.print(l);
+            Serial.print(" (Raw Counter: ");
+            Serial.print(_resistance.getPositionChangeCounter());
+            Serial.println(")");
+#endif
             lastLevel = l;
         }
 

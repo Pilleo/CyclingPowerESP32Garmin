@@ -22,12 +22,24 @@ static ResistanceLevel lvl(backwordsPin, limitPin, positionPin, forwardPin, sys)
 static Cadence freq(15, sys);
 static NimBleStackAdapter bleAdapter;
 static BLECyclingPowerService bleService(bleAdapter);
-static BikeComputerConfig config = {27, 15};
+static BikeComputerConfig config = {
+  .ledPin = 27,
+  .wakeupPin = 15,
+  .cadencePin = 15,
+  .resPositionPin = positionPin,
+  .resMinLevelLimitPin = limitPin,
+  .resBackwardsDirectionIndicatorPin = 4,  // Included
+  .resForwardDirectionIndicatorPin = 19    // Included
+};
 static BikeComputer computer(sys, freq, lvl, bleService, config);
+
+// --- FIX START: Guard setup/loop from Embedded Tests ---
+// We defined -D EMBEDDED_TEST in platformio.ini
+#if !defined(EMBEDDED_TEST) && !defined(UNIT_TEST)
 
 void setup()
 {
-  pinMode(27, OUTPUT);
+  pinMode(config.ledPin, OUTPUT);
   Serial.begin(115200);
   Serial.println("Start");
   computer.setup();
@@ -37,4 +49,8 @@ void loop()
 {
   computer.update();
 }
+
 #endif
+// --- FIX END ---
+
+#endif // End NATIVE_TEST
