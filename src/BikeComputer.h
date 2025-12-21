@@ -83,7 +83,7 @@ public:
             lastLevel = l;
         }
 
-        currentPower = Power::power(l, cad);
+        currentPower = Power::calculate({l, static_cast<float>(cad)});
 
         const unsigned long periodSinceLastTransaction = ms - lastDataSentTimestamp;
 

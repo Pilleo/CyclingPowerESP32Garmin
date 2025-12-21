@@ -1,10 +1,16 @@
 #include "Power.h"
 #include <array>
 #include <cmath>
-#include <algorithm> // for std::clamp if needed, though manual logic is used below
+#include <algorithm>
 
 // Internal Data (Hidden from the header)
 namespace {
+
+    constexpr float MIN_CADENCE_THRESHOLD = 10.0F;
+    constexpr int MIN_VALID_CADENCE = 10;
+    constexpr int MIN_TABLE_CADENCE = 20;
+    constexpr int MAX_TABLE_CADENCE = 100;
+    constexpr int MAX_TABLE_INDEX = MAX_TABLE_CADENCE - MIN_TABLE_CADENCE;
 
     // 81 rows (cadence 20-100), 16 columns (levels 1-16)
     constexpr std::array<std::array<uint16_t, 16>, 81> powerFromCadenceByLevel = {
@@ -95,44 +101,37 @@ namespace {
 
 } // namespace
 
-auto Power::power(const uint8_t resistanceLevel, const float cadence) -> uint16_t {
-    if (cadence < 10.0F) {
+auto Power::calculate(const PowerCalculationInput input) -> uint16_t {
+    if (input.cadence < MIN_CADENCE_THRESHOLD) {
         return 0;
     }
 
     // Ensure resistance level is within bounds (1-16) to prevent crashes
     // Use local clamped copy for array access (0-15)
-    const int safeLevelIndex = (resistanceLevel > 0 && resistanceLevel <= 16) ? (resistanceLevel - 1) : 0;
+    const int safeLevelIndex = (input.resistanceLevel > 0 && input.resistanceLevel <= 16) ? (input.resistanceLevel - 1) : 0;
 
     // Get the integer and fractional parts of the cadence
     float int_part;
-    float const frac_part = modff(cadence, &int_part);
+    float const frac_part = modff(input.cadence, &int_part);
     int const cadence_floor = static_cast<int>(int_part);
     int const cadence_ceil = cadence_floor + 1;
 
     // Lambda to get power for a given integer cadence from the table
-    auto get_power_for_cadence = [&](const int c) -> uint16_t {
-        int cadencePointer;
-        // Table starts at 20 RPM (index 0)
-        if (c <= 20) {
-            cadencePointer = 0;
-        } else if (c >= 100) {
-            cadencePointer = 80;
-        } else {
-            cadencePointer = c - 20;
-        }
+    auto get_power_for_cadence = [&](const int current_cadence) -> uint16_t {
+        // Table covers 20 RPM to 100 RPM.
+        // Index 0 = 20 RPM. Index 80 = 100 RPM.
+        const int cadencePointer = std::max(MIN_TABLE_CADENCE, std::min(current_cadence, MAX_TABLE_CADENCE)) - MIN_TABLE_CADENCE;
 
-        uint16_t p;
-        if (c < 10) {
-            p = 0;
-        } else if (c > 100) {
+        uint16_t power_val;
+        if (current_cadence < MIN_VALID_CADENCE) {
+            power_val = 0;
+        } else if (current_cadence > MAX_TABLE_CADENCE) {
             // Extrapolate for cadence > 100
-            // Logic: Value at 100RPM + (Excess RPM * 2)
-            p = powerFromCadenceByLevel[80][safeLevelIndex] + ((c - 100) * 2);
+            power_val = powerFromCadenceByLevel[MAX_TABLE_INDEX][safeLevelIndex] + ((current_cadence - MAX_TABLE_CADENCE) * 2);
         } else {
-            p = powerFromCadenceByLevel[cadencePointer][safeLevelIndex];
+            power_val = powerFromCadenceByLevel[cadencePointer][safeLevelIndex];
         }
-        return p;
+        return power_val;
     };
 
     // Get power for floor and ceil cadence
@@ -141,7 +140,7 @@ auto Power::power(const uint8_t resistanceLevel, const float cadence) -> uint16_
 
     // Linearly interpolate the power
     float const interpolated_power =
-            power_floor + ((static_cast<float>(power_ceil) - static_cast<float>(power_floor)) * frac_part);
+            static_cast<float>(power_floor) + ((static_cast<float>(power_ceil) - static_cast<float>(power_floor)) * frac_part);
 
     return static_cast<uint16_t>(roundf(interpolated_power));
 }

@@ -7,7 +7,7 @@ void test_power_low_cadence_cutoff()
     float cadence = 9.0f;
     uint8_t resistanceLevel = 5; // Declared here
     uint16_t expectedPower = 0;
-    uint16_t actualPower = Power::power(resistanceLevel, cadence);
+    uint16_t actualPower = Power::calculate({resistanceLevel, cadence});
     TEST_ASSERT_EQUAL(expectedPower, actualPower);
 }
 
@@ -21,7 +21,7 @@ void test_power_high_cadence_extrapolation()
     // So, 770 + (105-100)*2 = 770 + 10 = 780
     uint16_t expectedPower = 780;
 
-    uint16_t actualPower = Power::power(resistanceLevel, cadence);
+    uint16_t actualPower = Power::calculate({resistanceLevel, cadence});
 
     TEST_ASSERT_EQUAL(expectedPower, actualPower);
 }
@@ -40,8 +40,8 @@ void test_power_cadence_range_flatness()
     // which is 28.
     uint16_t expectedPower = 28;
 
-    uint16_t power_low = Power::power(level, cadence_low);
-    uint16_t power_high = Power::power(level, cadence_high);
+    uint16_t power_low = Power::calculate({level, cadence_low});
+    uint16_t power_high = Power::calculate({level, cadence_high});
 
     TEST_ASSERT_EQUAL_MESSAGE(expectedPower, power_low, "Power at cadence 11 should be 28");
     TEST_ASSERT_EQUAL_MESSAGE(expectedPower, power_high, "Power at cadence 20 should be 28");
@@ -56,14 +56,14 @@ void test_power_inter_cadence_discretization()
     float cadence_60 = 60.0f;
     // Expected power from powerFromCadenceByLevel[40][9] is 221
     uint16_t expectedPower_60 = 221;
-    uint16_t actualPower_60 = Power::power(level, cadence_60);
+    uint16_t actualPower_60 = Power::calculate({level, cadence_60});
     TEST_ASSERT_EQUAL_MESSAGE(expectedPower_60, actualPower_60, "Power at cadence 60 should be 221");
 
     // Check power at cadence 61
     float cadence_61 = 61.0f;
     // Expected power from powerFromCadenceByLevel[41][9] is 227
     uint16_t expectedPower_61 = 227;
-    uint16_t actualPower_61 = Power::power(level, cadence_61);
+    uint16_t actualPower_61 = Power::calculate({level, cadence_61});
     TEST_ASSERT_EQUAL_MESSAGE(expectedPower_61, actualPower_61, "Power at cadence 61 should be 227");
 
     // The power jumps from 221 to 227 with a single RPM increase.
@@ -77,7 +77,7 @@ void test_power_initialization()
     // This test ensures the basic call works without crashing and returns a non-negative value for valid inputs.
     float cadence = 20.0f;
     uint8_t resistanceLevel = 1; // Declared here
-    uint16_t actualPower = Power::power(resistanceLevel, cadence);
+    uint16_t actualPower = Power::calculate({resistanceLevel, cadence});
     TEST_ASSERT_TRUE(actualPower >= 0);
 }
 
@@ -101,7 +101,7 @@ void test_power_parametrized()
 
     for (unsigned int i = 0; i < sizeof(testCases) / sizeof(PowerTestCase); ++i)
     {
-        uint16_t actualPower = Power::power(testCases[i].resistanceLevel, testCases[i].cadence);
+        uint16_t actualPower = Power::calculate({testCases[i].resistanceLevel, testCases[i].cadence});
         TEST_ASSERT_EQUAL_UINT16_MESSAGE(testCases[i].expectedPower, actualPower, testCases[i].message);
     }
 }
@@ -126,7 +126,7 @@ void test_power_interpolation_parametrized()
 
     for (unsigned int i = 0; i < sizeof(testCases) / sizeof(PowerInterpolationTestCase); ++i)
     {
-        uint16_t actualPower = Power::power(testCases[i].resistanceLevel, testCases[i].cadence);
+        uint16_t actualPower = Power::calculate({testCases[i].resistanceLevel, testCases[i].cadence});
         TEST_ASSERT_EQUAL_UINT16_MESSAGE(testCases[i].expectedPower, actualPower, testCases[i].message);
     }
 }
@@ -141,19 +141,19 @@ void test_power_level_bounds_safety() {
     // Case A: Level 0
     // Current logic: (resistanceLevel > 0 && resistanceLevel <= 16) ? (resistanceLevel - 1) : 0;
     // So Level 0 maps to Level 1 (Index 0).
-    uint16_t powerAtLevel0 = Power::power(0, standardCadence);
-    uint16_t powerAtLevel1 = Power::power(1, standardCadence);
+    uint16_t powerAtLevel0 = Power::calculate({0, standardCadence});
+    uint16_t powerAtLevel1 = Power::calculate({1, standardCadence});
     TEST_ASSERT_EQUAL_MESSAGE(powerAtLevel1, powerAtLevel0, "Level 0 should map to Level 1 safety defaults");
 
     // Case B: Level 17 (Out of bounds)
     // Logic: Clamps to Index 0 (Level 1) due to the ternary check failing?
     // Check code: `(resistanceLevel > 0 && resistanceLevel <= 16) ? ... : 0;`
     // Yes, invalid levels default to Index 0 (Level 1).
-    uint16_t powerAtLevel17 = Power::power(17, standardCadence);
+    uint16_t powerAtLevel17 = Power::calculate({17, standardCadence});
     TEST_ASSERT_EQUAL_MESSAGE(powerAtLevel1, powerAtLevel17, "Level 17 should map to Level 1 safety defaults");
 
     // Case C: Max Byte (255)
-    uint16_t powerAtMax = Power::power(255, standardCadence);
+    uint16_t powerAtMax = Power::calculate({255, standardCadence});
     TEST_ASSERT_EQUAL(powerAtLevel1, powerAtMax);
 }
 
@@ -166,7 +166,7 @@ void test_power_negative_cadence() {
 
     // Code logic check: `if (cadence < 10.0F) return 0;`
     // -50 is < 10, so it should return 0.
-    uint16_t power = Power::power(5, negCadence);
+    uint16_t power = Power::calculate({5, negCadence});
     TEST_ASSERT_EQUAL(0, power);
 }
 /**
@@ -180,20 +180,20 @@ void test_power_cadence_boundary_behavior() {
 
     // Case 1: 9.9 RPM (Should be 0)
     // Guard clause `if (cadence < 10.0F)` returns 0.
-    uint16_t p_below = Power::power(level, 9.9f);
+    uint16_t p_below = Power::calculate({level, 9.9f});
     TEST_ASSERT_EQUAL_MESSAGE(0, p_below, "Cadence of 9.9 RPM should yield 0 Watts");
 
     // Case 2: 10.0 RPM (Should be valid)
     // Bypasses guard. hits `get_power_for_cadence(10)`.
     // Since 10 < 20, it uses index 0.
     // powerFromCadenceByLevel[0][4] (Level 5) is 16.
-    uint16_t p_at_10 = Power::power(level, 10.0f);
+    uint16_t p_at_10 = Power::calculate({level, 10.0f});
     TEST_ASSERT_EQUAL_MESSAGE(16, p_at_10, "Cadence of 10.0 RPM should yield 16 Watts (Level 5 base)");
 
     // Case 3: 10.1 RPM
     // Should be valid. Since table is flat (16W) from 10 to 20 RPM,
     // interpolation between 10 (16W) and 11 (16W) should be 16W.
-    uint16_t p_above = Power::power(level, 10.1f);
+    uint16_t p_above = Power::calculate({level, 10.1f});
     TEST_ASSERT_INT_WITHIN(1, 16, p_above);
 }
 int main()
