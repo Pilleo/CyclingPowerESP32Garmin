@@ -10,18 +10,20 @@ class StatusLed {
     uint32_t _lastBlinkTime = 0;
 
     static constexpr int DEFAULT_BLINK_INTERVAL = 1000;
+    static constexpr int MILLISECONDS_IN_MINUTE = 60000;
 
 public:
-    StatusLed(ISystemWrapper& sys, uint8_t pin) : _sys(sys), _pin(pin) {}
+    StatusLed(ISystemWrapper& sys, uint8_t pin) noexcept : _sys(sys), _pin(pin) {}
 
     void setup() {
+        _sys.pinMode(_pin, OUTPUT);
         _sys.digitalWrite(_pin, 0); // Initialize LOW
     }
 
     void update(float cadence) {
         int blinkInterval = DEFAULT_BLINK_INTERVAL;
         if (cadence > 0) {
-            blinkInterval = static_cast<int>(60000 / cadence);
+            blinkInterval = static_cast<int>(MILLISECONDS_IN_MINUTE / cadence);
         }
 
         long const now = _sys.millis();

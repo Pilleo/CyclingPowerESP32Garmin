@@ -24,8 +24,8 @@ void Cadence::enableInterrupt() {
 }
 
 // Static ISR: The Bridge
-void ISR_ATTR Cadence::isr() {
-    if (_instance) {
+void Cadence::isr() {
+    if (_instance != nullptr) {
         _instance->handleInterrupt();
     }
 }
@@ -33,14 +33,14 @@ void ISR_ATTR Cadence::isr() {
 // Instance ISR: The Worker
 void Cadence::handleInterrupt() {
     // Get time immediately
-    uint32_t now = sys.millis();
+    uint32_t const now = sys.millis();
     onPulse(now);
 }
 
-Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) : sys(sys), pin(pinn)
+Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) noexcept : sys(sys), pin(pinn)
 {
     // Initialize state to avoid startup glitches
-    oldState = (sys.digitalRead(pin) != 0);
+    oldState = false; // Safe default
 
     elapsedTimestamp = 0;
     elapsedSampleTimeStamp = 0;
@@ -49,15 +49,24 @@ Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) : sys(sys), pin(pinn)
     gattLastCrankRevolutionTimestamp = 0;
 }
 
-static auto calculateRpmFromRevolutions(const uint8_t revolutions, const uint32_t revolutionsTime) -> float
-{
-    if (revolutionsTime == 0) {
-        return 0.0F;
-    }
-    // 60,000 ms in a minute
-    const float instantaneousRpm = 60000.0F / (static_cast<float>(revolutionsTime) / static_cast<float>(revolutions));
-    return instantaneousRpm;
+void Cadence::begin() {
+    oldState = (sys.digitalRead(pin) != 0);
 }
+
+namespace {
+    auto calculateRpmFromRevolutions(const uint8_t revolutions, const uint32_t revolutionsTime) -> float
+    {
+        if (revolutionsTime == 0) {
+            return 0.0F;
+        }
+        // 60,000 ms in a minute
+        const float instantaneousRpm = 60000.0F / (static_cast<float>(revolutionsTime) / static_cast<float>(revolutions));
+        return instantaneousRpm;
+    }
+
+    constexpr float MILLISECONDS_IN_SECOND = 1000.0F;
+    constexpr float GATT_TIME_UNITS_PER_SECOND = 1024.0F;
+} // namespace
 
 void Cadence::onPulse(uint32_t now)
 {
@@ -89,12 +98,9 @@ auto Cadence::cadence() -> float
     const uint32_t mls = sys.millis();
 
     // 2. Atomic Snapshot
-    uint32_t snapshotTimestamp;
-    uint8_t snapshotRev;
-
     sys.disableInterrupts();
-    snapshotRev = rev;
-    snapshotTimestamp = elapsedTimestamp;
+    const uint8_t snapshotRev = rev;
+    const uint32_t snapshotTimestamp = elapsedTimestamp;
     sys.enableInterrupts();
 
     const uint32_t intervalTime = mls - snapshotTimestamp;
@@ -105,7 +111,9 @@ auto Cadence::cadence() -> float
         {
             if (intervalTime > MAX_IDLE_TIMEOUT_MS) {
                 rpm = 0.0F;
-                if (intervalTime > DEEP_SLEEP_TIMEOUT_MS) rpm = -1.0F;
+                if (intervalTime > DEEP_SLEEP_TIMEOUT_MS) {
+                    rpm = -1.0F;
+                }
                 return rpm;
             }
             if (rpm > 0 && lastIntervalTime > 0 && intervalTime > lastIntervalTime) {
@@ -123,7 +131,7 @@ auto Cadence::cadence() -> float
 
             lastIntervalTime = intervalTime;
             gattLastCrankRevolutionTimestamp = (gattLastCrankRevolutionTimestamp +
-                                                static_cast<uint16_t>((intervalTime / 1000.F) * 1024.F));
+                                                static_cast<uint16_t>((static_cast<float>(intervalTime) / MILLISECONDS_IN_SECOND) * GATT_TIME_UNITS_PER_SECOND));
         }
     }
 

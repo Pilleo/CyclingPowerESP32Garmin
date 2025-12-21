@@ -20,6 +20,7 @@ void tearDown() {}
 
 void test_cadence_isr_bridge() {
     Cadence cad(PIN_CAD, mockSysBridge);
+    cad.begin(); // Initialize hardware state
 
     // 1. Enable (Sets static instance)
     cad.enableInterrupt();
@@ -46,6 +47,7 @@ void test_resistance_isr_bridge() {
     // 1. Setup with explicit pins
     // Back=10, Fwd=12, Pos=23, Limit=11
     ResistanceLevel res2(10, 11, 23, 12, mockSysBridge);
+    res2.begin(); // Initialize hardware state (reads default HIGH from mock)
     res2.enableInterrupt();
 
     // 2. Set Forward Direction
@@ -71,6 +73,7 @@ void test_resistance_isr_bridge() {
 void test_resistance_limit_isr_bridge() {
     // 1. Setup
     ResistanceLevel res(10, 11, 23, 12, mockSysBridge);
+    res.begin(); // Initialize hardware state
     res.enableInterrupt();
 
     // 2. Establish a Level/Counter

@@ -27,7 +27,7 @@ public:
     virtual void createService(const char* uuid) = 0;
     virtual void startService(const char* uuid) = 0;
 
-    virtual CharHandle createCharacteristic(const char* serviceUuid, const char* charUuid, uint32_t properties) = 0;
+    virtual auto createCharacteristic(const char* serviceUuid, const char* charUuid, uint32_t properties) -> CharHandle = 0;
 
     virtual void setCharacteristicValue(CharHandle handle, const uint8_t* data, size_t length) = 0;
     virtual void setCharacteristicValue(CharHandle handle, uint8_t value) = 0; // Overload for byte

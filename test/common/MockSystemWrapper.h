@@ -53,6 +53,10 @@ public:
         // No-op for now, or store if needed for verification
     }
 
+    void pinMode(uint8_t pin, uint8_t mode) override {
+        // No-op for mock
+    }
+
     void enterDeepSleep(uint8_t pin, int level) override {
         wasSleepCalled = true;
         sleepWakeupPin = pin;

@@ -8,7 +8,6 @@
 #ifndef NATIVE_TEST
 #include <Arduino.h>
 #endif
-#include "Cadence.h"
 #include "IBleService.h"
 #include "IBleStackAdapter.h"
 
@@ -27,14 +26,19 @@ private:
     // Private helper methods for setup
     void setupPowerService();
     void setupBatteryService();
-    void setupAdvertising();
+    void setupAdvertising() const;
 
 public:
-    explicit BLECyclingPowerService(IBleStackAdapter& bleStack);
+    explicit BLECyclingPowerService(IBleStackAdapter& bleStack) noexcept;
+    ~BLECyclingPowerService() override = default;
+    BLECyclingPowerService(const BLECyclingPowerService&) = delete;
+    auto operator=(const BLECyclingPowerService&) -> BLECyclingPowerService& = delete;
+    BLECyclingPowerService(BLECyclingPowerService&&) = delete;
+    auto operator=(BLECyclingPowerService&&) -> BLECyclingPowerService& = delete;
 
     void start() override;
     void updateData(uint16_t power, uint32_t totalRevolutions, uint16_t crankEventTime) override;
-    bool isConnected() override;
+    auto isConnected() -> bool override;
 
     // IBleStackAdapter::Callbacks implementation
     void onConnect() override;

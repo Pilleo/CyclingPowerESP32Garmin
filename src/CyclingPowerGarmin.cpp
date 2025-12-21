@@ -1,37 +1,41 @@
 #ifndef NATIVE_TEST
 // Bluedroid is incompatible with Garmin
 // https://github.com/ihaque/pelomon/blob/main/pelomon/ble_constants.h
-#include "ble_constants.h"
 #include "Cadence.h"
-// #include <Power.h>
+
 #include <ResistanceLevel.h>
 #include <Arduino.h>
 #include <BLECyclingPowerService.h>
-#include <Power.h>
+
 #include "SystemWrapper.h"
 #include "BikeComputer.h"
 #include "NimBleStackAdapter.h"
 
-static constexpr uint8_t backwordsPin = 4;
-static constexpr uint8_t limitPin = 18;
-static constexpr uint8_t forwardPin = 19;
-static constexpr uint8_t positionPin = 23;
+namespace {
+constexpr uint8_t backwordsPin = 4;
+constexpr uint8_t limitPin = 18;
+constexpr uint8_t forwardPin = 19;
+constexpr uint8_t positionPin = 23;
+constexpr uint8_t cadencePin = 15;
+constexpr uint8_t ledPin = 27;
+constexpr uint32_t serialBaudRate = 115200;
 
-static ArduinoSystemWrapper sys;
-static ResistanceLevel lvl(backwordsPin, limitPin, positionPin, forwardPin, sys);
-static Cadence freq(15, sys);
-static NimBleStackAdapter bleAdapter;
-static BLECyclingPowerService bleService(bleAdapter);
-static BikeComputerConfig config = {
-  .ledPin = 27,
-  .wakeupPin = 15,
-  .cadencePin = 15,
+ArduinoSystemWrapper sys;
+ResistanceLevel lvl(backwordsPin, limitPin, positionPin, forwardPin, sys);
+Cadence freq(cadencePin, sys);
+NimBleStackAdapter bleAdapter;
+BLECyclingPowerService bleService(bleAdapter);
+BikeComputerConfig config = {
+  .ledPin = ledPin,
+  .wakeupPin = cadencePin,
+  .cadencePin = cadencePin,
   .resPositionPin = positionPin,
   .resMinLevelLimitPin = limitPin,
-  .resBackwardsDirectionIndicatorPin = 4,  // Included
-  .resForwardDirectionIndicatorPin = 19    // Included
+  .resBackwardsDirectionIndicatorPin = backwordsPin,
+  .resForwardDirectionIndicatorPin = forwardPin
 };
-static BikeComputer computer(sys, freq, lvl, bleService, config);
+BikeComputer computer(sys, freq, lvl, bleService, config);
+}
 
 // --- FIX START: Guard setup/loop from Embedded Tests ---
 // We defined -D EMBEDDED_TEST in platformio.ini
@@ -40,7 +44,7 @@ static BikeComputer computer(sys, freq, lvl, bleService, config);
 void setup()
 {
   pinMode(config.ledPin, OUTPUT);
-  Serial.begin(115200);
+  Serial.begin(serialBaudRate);
   Serial.println("Start");
   computer.setup();
 }

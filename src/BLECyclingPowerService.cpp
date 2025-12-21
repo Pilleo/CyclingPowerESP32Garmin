@@ -5,6 +5,7 @@
 #include "BLECyclingPowerService.h"
 #include "ble_constants.h"
 #include "BlePacketGenerator.h"
+#include <array>
 
 // Service and Characteristic UUIDs
 static constexpr const char* BATTERY_SERVICE_UUID_STR = "180F";
@@ -20,7 +21,7 @@ static constexpr uint16_t APPEARANCE_CYCLING_POWER = 0x0484;
 // Battery level (dummy value for now)
 static constexpr uint8_t DUMMY_BATTERY_LEVEL = 79;
 
-BLECyclingPowerService::BLECyclingPowerService(IBleStackAdapter& bleStack)
+BLECyclingPowerService::BLECyclingPowerService(IBleStackAdapter& bleStack) noexcept
     : _bleStack(bleStack) {}
 
 void BLECyclingPowerService::start() {
@@ -46,14 +47,18 @@ void BLECyclingPowerService::setupPowerService() {
         CYCLING_POWER_SERVICE_UUID_STR,
         CYCLING_POWER_FEATURE_CHAR_UUID_STR,
         IBleStackAdapter::PROP_READ);
-    uint32_t featureVal = CPF_CRANK_REVOLUTION_DATA_SUPPORTED | CPF_WHEEL_REVOLUTION_DATA_SUPPORTED;
+
+    constexpr uint32_t crankRevSupported = CPF_CRANK_REVOLUTION_DATA_SUPPORTED;
+    constexpr uint32_t wheelRevSupported = CPF_WHEEL_REVOLUTION_DATA_SUPPORTED;
+    uint32_t featureVal = crankRevSupported | wheelRevSupported;
+
     _bleStack.setCharacteristicValue(_featureCharacteristic, reinterpret_cast<uint8_t*>(&featureVal), sizeof(featureVal));
 
     _sensorLocationCharacteristic = _bleStack.createCharacteristic(
         CYCLING_POWER_SERVICE_UUID_STR,
         SENSOR_LOCATION_CHAR_UUID_STR,
         IBleStackAdapter::PROP_READ);
-    uint8_t locVal = SENSOR_LOCATION_CHAIN_RING;
+    static constexpr uint8_t locVal = SENSOR_LOCATION_CHAIN_RING;
     _bleStack.setCharacteristicValue(_sensorLocationCharacteristic, &locVal, sizeof(locVal));
 
     _bleStack.startService(CYCLING_POWER_SERVICE_UUID_STR);
@@ -68,7 +73,7 @@ void BLECyclingPowerService::setupBatteryService() {
     _bleStack.startService(BATTERY_SERVICE_UUID_STR);
 }
 
-void BLECyclingPowerService::setupAdvertising() {
+void BLECyclingPowerService::setupAdvertising() const {
     _bleStack.addServiceToAdvertising(CYCLING_POWER_SERVICE_UUID_STR);
     _bleStack.addServiceToAdvertising(BATTERY_SERVICE_UUID_STR);
     _bleStack.setAppearance(APPEARANCE_CYCLING_POWER);
@@ -79,19 +84,17 @@ void BLECyclingPowerService::updateData(uint16_t power, uint32_t totalRevolution
         return;
     }
 
-    uint8_t payload[BlePacketGenerator::MAX_PACKET_SIZE];
-    size_t packetSize = BlePacketGenerator::generatePacket(power, totalRevolutions, crankEventTime, payload);
+    std::array<uint8_t, BlePacketGenerator::MAX_PACKET_SIZE> payload{};
+    const size_t packetSize = BlePacketGenerator::generatePacket(power, totalRevolutions, crankEventTime, payload.data());
 
-    if (packetSize > 0) {
-        _bleStack.setCharacteristicValue(_powerMeasurementCharacteristic, payload, packetSize);
-        _bleStack.notify(_powerMeasurementCharacteristic);
+    _bleStack.setCharacteristicValue(_powerMeasurementCharacteristic, payload.data(), packetSize);
+    _bleStack.notify(_powerMeasurementCharacteristic);
 
-        _bleStack.setCharacteristicValue(_batteryLevelCharacteristic, DUMMY_BATTERY_LEVEL);
-        _bleStack.notify(_batteryLevelCharacteristic);
-    }
+    _bleStack.setCharacteristicValue(_batteryLevelCharacteristic, DUMMY_BATTERY_LEVEL);
+    _bleStack.notify(_batteryLevelCharacteristic);
 }
 
-bool BLECyclingPowerService::isConnected() {
+auto BLECyclingPowerService::isConnected() -> bool {
     return _deviceConnected;
 }
 

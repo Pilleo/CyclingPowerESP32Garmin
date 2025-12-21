@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include "SystemWrapper.h"
-#if defined(ESP32)
+#ifdef ESP32
     #include "esp_attr.h"
     #define ISR_ATTR IRAM_ATTR
 #else
@@ -12,11 +12,13 @@
 class ResistanceLevel
 {
 public:
-    explicit ResistanceLevel(uint8_t backwardsPin, uint8_t limitPin, uint8_t positionPin, uint8_t forwardsPin, ISystemWrapper& sys);
+    explicit ResistanceLevel(uint8_t backwardsPin, uint8_t limitPin, uint8_t positionPin, uint8_t forwardsPin, ISystemWrapper& sys) noexcept;
+
+    void begin(); // Initialize hardware state
 
     auto getLevel() const -> uint8_t;
     auto getPositionChangeCounter() const -> uint16_t;
-    auto level() -> uint8_t; // // Wrapper returns level
+    auto level() const -> uint8_t; // // Wrapper returns level
     /**
       * @brief Polling Driver.
       * Reads all resistance pins and triggers events if edges are detected.
@@ -42,10 +44,10 @@ public:
     // NEW: ISR Entry Points
     void enableInterrupt();
     void handlePositionInterrupt();
-    static void ISR_ATTR isrPosition();
+    static void isrPosition() ISR_ATTR;
     // NEW: ISR for Limit Switch
     void handleLimitInterrupt();
-    static void ISR_ATTR isrLimit();
+    static void isrLimit() ISR_ATTR;
 private:
     ISystemWrapper& sys;
     const uint8_t limitPin;

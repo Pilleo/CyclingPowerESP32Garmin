@@ -1,6 +1,7 @@
 #ifndef BIKECOMPUTER_H
 #define BIKECOMPUTER_H
 
+#include <cstdint>
 #include "SystemWrapper.h"
 #include "Cadence.h"
 #include "ResistanceLevel.h"
@@ -34,10 +35,12 @@ class BikeComputer {
     static constexpr int timePerioudForSendingData = 510;
 
 public:
-    BikeComputer(ISystemWrapper& sys, Cadence& cad, ResistanceLevel& res, IBleService& ble, BikeComputerConfig config = {27, 15})
+    BikeComputer(ISystemWrapper& sys, Cadence& cad, ResistanceLevel& res, IBleService& ble, BikeComputerConfig config = {27, 15}) noexcept
         : _sys(sys), _cadence(cad), _resistance(res), _bleService(ble), _config(config), _led(sys, config.ledPin) {}
 
     void setup() {
+        _cadence.begin();
+        _resistance.begin();
         _led.setup();
         _bleService.start();
      //   setupInterrupts();

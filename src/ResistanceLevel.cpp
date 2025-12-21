@@ -29,22 +29,26 @@ namespace {
 }
 
 ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limitPin, const uint8_t positionPin,
-                                 const uint8_t forwardsPin, ISystemWrapper& sys)
+                                 const uint8_t forwardsPin, ISystemWrapper& sys) noexcept
     : sys(sys), limitPin(limitPin), backwardsPin(backwardsPin), positionPin(positionPin), forwardsPin(forwardsPin)
 {
-    oldPositionState = (sys.digitalRead(positionPin) != 0);
+    oldPositionState = false; // Safe default
     currentLevel = MIN_LEVEL;
     lastPulseTimestamp = 0;
     prevDirectionWasForward = true;
     positionChangeCounter = 0;
 }
 
+void ResistanceLevel::begin() {
+    oldPositionState = (sys.digitalRead(positionPin) != 0);
+}
+
 void ResistanceLevel::enableInterrupt() {
     _instance = this;
 }
 
-void ISR_ATTR ResistanceLevel::isrPosition() {
-    if (_instance) {
+void ResistanceLevel::isrPosition() {
+    if (_instance != nullptr) {
         _instance->handlePositionInterrupt();
     }
 }
@@ -52,7 +56,7 @@ void ISR_ATTR ResistanceLevel::isrPosition() {
 void ResistanceLevel::handlePositionInterrupt() {
     // 1. Read Position Pin explicitly for reliability
     // This confirms the interrupt wasn't just a fleeting noise spike.
-    bool currentPos = (sys.digitalRead(positionPin) != 0);
+    const bool currentPos = (sys.digitalRead(positionPin) != 0);
 
     // 2. State Verification
     // Even if the ISR fired, check if the state is actually different from the last known state.
@@ -62,21 +66,21 @@ void ResistanceLevel::handlePositionInterrupt() {
     oldPositionState = currentPos;
 
     // 3. Capture Time & Direction
-    uint32_t now = sys.millis();
+    const uint32_t now = sys.millis();
 
     // Read direction pins immediately to verify context
-    bool pinBack = (sys.digitalRead(backwardsPin) != 0);
-    bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
+    const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
+    const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
 
-    bool isMovingBack = pinBack && !pinFwd;
-    bool isMovingForward = pinFwd && !pinBack;
+    const bool isMovingBack = pinBack && !pinFwd;
+    const bool isMovingForward = pinFwd && !pinBack;
 
     // 4. Delegate to Core Logic
     onPositionPulse(now, isMovingForward, isMovingBack);
 }
-// --- MISSING PART START ---
-void ISR_ATTR ResistanceLevel::isrLimit() {
-    if (_instance) {
+
+void ResistanceLevel::isrLimit() {
+    if (_instance != nullptr) {
         _instance->handleLimitInterrupt();
     }
 }
@@ -92,18 +96,18 @@ void ResistanceLevel::handleLimitInterrupt() {
     // We must ONLY reset if we are NOT moving forward.
     // If we are moving forward and hit the limit, it's a glitch or mechanical overshoot,
     // and we should NOT reset the level to 1.
-    bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
-    bool pinBack = (sys.digitalRead(backwardsPin) != 0);
+    const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
+    const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
 
     // Logic: Forward if ForwardPin is High AND BackPin is Low
-    bool isMovingForward = pinFwd && !pinBack;
+    const bool isMovingForward = pinFwd && !pinBack;
 
     if (!isMovingForward) {
         onLimitReset();
     }
 }
 
-auto ResistanceLevel::level() -> uint8_t {
+auto ResistanceLevel::level() const -> uint8_t {
     return getLevel();
 }
 
@@ -119,14 +123,13 @@ auto ResistanceLevel::getLevel() const -> uint8_t {
 
 
 auto ResistanceLevel::getPositionChangeCounter() const -> uint16_t {
-    uint16_t snap;
     // We need to cast 'this' to non-const to access sys?
     // Or make sys mutable.
     // Or just accept that sys.noInterrupts() changes system state, not object state.
-    ResistanceLevel* nonConstThis = const_cast<ResistanceLevel*>(this);
+    const ResistanceLevel* nonConstThis = const_cast<ResistanceLevel*>(this);
 
     nonConstThis->sys.disableInterrupts();
-    snap = positionChangeCounter;
+    const uint16_t snap = positionChangeCounter;
     nonConstThis->sys.enableInterrupts();
     return snap;
 }
@@ -145,12 +148,12 @@ void ResistanceLevel::onLimitReset() {
     currentLevel = MIN_LEVEL;
 }
 
-void ResistanceLevel::onPositionPulse(uint32_t now, bool isMovingForward, bool isMovingBack) {
-    const unsigned long sampleTime = now - lastPulseTimestamp;
+void ResistanceLevel::onPositionPulse(const uint32_t timestampMs, const bool isMovingForward, const bool isMovingBack) {
+    const unsigned long sampleTime = timestampMs - lastPulseTimestamp;
 
     // 1. Debounce Logic
     if (sampleTime > DEBOUNCE_TIME_MS) {
-        lastPulseTimestamp = now;
+        lastPulseTimestamp = timestampMs;
 
         const bool isConsistent = (sampleTime < MOVEMENT_TIMEOUT_MS);
         const bool isLongPause = (sampleTime > PAUSE_TIMEOUT_MS);

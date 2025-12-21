@@ -12,13 +12,14 @@ static MockSystemWrapper mockSys;
 ResistanceLevel *resistanceLevelInstance;
 
 void setUp(void) {
-    mockSys = MockSystemWrapper();
+    mockSys.reset();
     mockSys.setPinState(LIMIT_PIN, false);
     mockSys.setPinState(BACKWARDS_PIN, false);
     mockSys.setPinState(FORWARD_PIN, false);
     mockSys.setPinState(POSITION_PIN, false);
 
     resistanceLevelInstance = new ResistanceLevel(BACKWARDS_PIN, LIMIT_PIN, POSITION_PIN, FORWARD_PIN, mockSys);
+    resistanceLevelInstance->begin(); // Initialize hardware state
 }
 
 void tearDown(void) {

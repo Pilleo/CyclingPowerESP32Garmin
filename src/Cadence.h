@@ -13,7 +13,9 @@
 class Cadence
 {
 public:
-    explicit Cadence(uint8_t pinn, ISystemWrapper& sys);
+    explicit Cadence(uint8_t pinn, ISystemWrapper& sys) noexcept;
+
+    void begin(); // Initialize hardware state
 
     /**
      * @brief Polling Driver.
@@ -40,10 +42,10 @@ public:
     void enableInterrupt();
 
     // The actual code to run inside the ISR (Instance context)
-    void handleInterrupt();
+    void ISR_ATTR handleInterrupt();
 
     // The static function to attach to the microcontroller (Global context)
-    static void ISR_ATTR isr();
+    static void isr();
 
 private:
     ISystemWrapper& sys;

@@ -3,11 +3,12 @@
 
 #include <cstdint>
 #include <cstring> // For memcpy
+#include "ble_constants.h"
 
 // Define the flags based on ble_constants.h
 // These flags indicate which optional fields are present in the packet.
-#define CPM_FLAG_WHEEL_REV_DATA_PRESENT (1 << 4)
-#define CPM_FLAG_CRANK_REV_DATA_PRESENT (1 << 5)
+#define CPM_FLAG_WHEEL_REV_DATA_PRESENT CPM_WHEEL_REV_DATA_PRESENT
+#define CPM_FLAG_CRANK_REV_DATA_PRESENT CPM_CRANK_REV_DATA_PRESENT
 
 // This struct represents the Cycling Power Measurement characteristic.
 // It is packed to ensure there is no padding between members, matching the BLE specification.
@@ -53,7 +54,7 @@ public:
         packet.cumulativeWheelRevs = totalCrankRevs * WHEEL_TO_CRANK_REVOLUTION_RATIO;
         packet.lastWheelEventTime = lastCrankTime * WHEEL_TO_CRANK_TIME_RATIO;
         
-        packet.cumulativeCrankRevs = totalCrankRevs;
+        packet.cumulativeCrankRevs = static_cast<uint16_t>(totalCrankRevs);
         packet.lastCrankEventTime = lastCrankTime;
 
         // Copy the packet to the buffer. This is safe because the struct is packed and the buffer is large enough.
