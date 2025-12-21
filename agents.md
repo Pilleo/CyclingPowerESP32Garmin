@@ -40,15 +40,15 @@ The project targets an **ESP32** (specifically configured for `lolin32_lite` in 
 
 Defined in `src/CyclingPowerGarmin.cpp` and `src/BikeComputer.h`:
 
-| Component            | Pin (GPIO) | Description                                                          |
-|:---------------------|:-----------|:---------------------------------------------------------------------|
-| **Cadence Sensor**   | **15**     | Input. Reed switch/Hall sensor. Active Low/High depending on magnet. |
-| **Resistance Back**  | **4**      | Input. Signal that resistance is decreasing.                         |
-| **Resistance Fwd**   | **19**     | Input. Signal that resistance is increasing.                         |
-| **Resistance Pos**   | **23**     | Input. Pulse pin; toggles as resistance knob turns.                  |
-| **Resistance Limit** | **18**     | Input. Limit switch to recalibrate level to 1.                       |
-| **LED**              | **27**     | Output. Status LED (Blinks based on RPM).                            |
-| **Wakeup**           | **15**     | Deep sleep wakeup source (tied to Cadence).                          |
+| Component            | Pin (GPIO) | Description                                                                          |
+|:---------------------|:-----------|:-------------------------------------------------------------------------------------|
+| **Cadence Sensor**   | **15**     | Input. Reed switch/Hall sensor. Active Low/High depending on magnet.                 |
+| **Resistance Back**  | **4**      | Input. Signal that resistance is decreasing. Comes from a motor adjusting resistance |
+| **Resistance Fwd**   | **19**     | Input. Signal that resistance is increasing. Comes from a motor adjusting resistance |
+| **Resistance Pos**   | **23**     | Input. Pulse pin; toggles as resistance knob turns. Comes from an optical sensor     |
+| **Resistance Limit** | **18**     | Input. Limit switch to recalibrate level to 1.                                       |
+| **LED**              | **27**     | Output. Status LED (Blinks based on RPM).                                            |
+| **Wakeup**           | **15**     | Deep sleep wakeup source (tied to Cadence).                                          |
 
 ## Development & Testing
 
