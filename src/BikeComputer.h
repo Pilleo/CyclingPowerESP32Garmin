@@ -8,6 +8,7 @@
 #include "IBleService.h"
 #include "Power.h"
 #include "StatusLed.h"
+#include "config.h"
 
 struct BikeComputerConfig {
     uint8_t ledPin;
@@ -31,12 +32,9 @@ class BikeComputer {
     uint16_t currentPower = 0;
     uint8_t lastLevel = 1;
 
-    // Constants
-    static constexpr int timePerioudForSendingData = 510;
-
 public:
     BikeComputer(ISystemWrapper &sys, Cadence &cad, ResistanceLevel &res, IBleService &ble,
-                 BikeComputerConfig config = {27, 15}) noexcept
+                 BikeComputerConfig config) noexcept
         : _sys(sys), _cadence(cad), _resistance(res), _bleService(ble), _config(config), _led(sys, config.ledPin) {
     }
 
@@ -45,7 +43,9 @@ public:
         _resistance.begin();
         _led.setup();
         _bleService.start();
-        //   setupInterrupts();
+#if USE_INTERRUPTS
+        setupInterrupts();
+#endif
     }
 
     void setupInterrupts() const {
@@ -62,11 +62,11 @@ public:
     }
 
     void update() {
-        // POLL SENSORS (New Step)
-        // When you switch to Interrupts, you will just comment these two lines out!
+#if !USE_INTERRUPTS
+        // When using interrupts, we don't need to poll the sensors.
         _cadence.poll();
         _resistance.poll();
-
+#endif
         const int16_t cad = _cadence.cadence();
 
         _led.update(cad);
@@ -89,7 +89,7 @@ public:
 
         const unsigned long periodSinceLastTransaction = ms - lastDataSentTimestamp;
 
-        if (periodSinceLastTransaction >= timePerioudForSendingData) {
+        if (periodSinceLastTransaction >= TIME_PERIOD_FOR_SENDING_DATA) {
             if (cad >= 0) {
                 _bleService.updateData(currentPower, _cadence.totalRevs(),
                                        _cadence.getGattLastCrankRevolutionTimestamp());
