@@ -5,7 +5,7 @@
 other BLE Cycling Power Profile (CPP) receivers.
 It is not an FTMS project as Garmin still does not support the standard, so it is axposed as a regular cycling power meter.
 The system estimates **Power (Watts)** via a software model that correlates **Cadence (RPM)** and **Resistance Level** (derived from a mechanical position sensor) using a lookup table.
-
+Using polling currently as interrupts did not work great with resistance with current implementation
 ## Architecture & Design
 
 The firmware is designed with **Testability** as a core principle. It decouples hardware interactions from business logic using Dependency Injection.
