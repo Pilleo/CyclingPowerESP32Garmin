@@ -1,7 +1,7 @@
 #include <unity.h>
 #include "../../src/BLECyclingPowerService.h"
 #include "MockBleStackAdapter.h"
-#include "../../src/Cadence.h" // Needed for updateData signature, though we pass primitives now?
+#include "../../src/CadenceLogic.h" // Needed for updateData signature, though we pass primitives now?
 // Actually updateData takes primitives now.
 
 MockBleStackAdapter* mockStack;

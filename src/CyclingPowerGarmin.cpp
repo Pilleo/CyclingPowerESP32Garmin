@@ -10,33 +10,42 @@
 #include "SystemWrapper.h"
 #include "BikeComputer.h"
 #include "NimBleStackAdapter.h"
+#include "config.h"
+#include "drivers/PollingDriver.h"
+#include "drivers/InterruptDriver.h"
+#include "ResistanceLogic.h"
+#include "CadenceLogic.h"
 
 namespace {
-    constexpr ResistanceLevelPins resistancePins = {
-        .backwards = 4,
-        .limit = 18,
-        .position = 23,
-        .forwards = 19
+    constexpr ResistanceLogicPins resistancePins = {
+        .backwards = config::RESISTANCE_BACKWARDS_PIN,
+        .limit = config::RESISTANCE_LIMIT_PIN,
+        .forwards = config::RESISTANCE_FORWARDS_PIN
     };
-    constexpr uint8_t cadencePin = 15;
-    constexpr uint8_t ledPin = 27;
     constexpr uint32_t serialBaudRate = 115200;
 
     ArduinoSystemWrapper sys;
-    ResistanceLevel lvl(resistancePins, sys);
-    Cadence freq(cadencePin, sys);
+
+    // Drivers
+    PollingDriver resistanceDriver(sys, config::RESISTANCE_POSITION_PIN);
+    InterruptDriver cadenceDriver(sys, config::CADENCE_PIN);
+
+    // Logic
+    ResistanceLogic resistanceLogic(resistancePins, resistanceDriver, sys);
+    CadenceLogic cadenceLogic(cadenceDriver, sys);
+
     NimBleStackAdapter bleAdapter;
     BLECyclingPowerService bleService(bleAdapter);
-    BikeComputerConfig config = {
-        .ledPin = ledPin,
-        .wakeupPin = cadencePin,
-        .cadencePin = cadencePin,
-        .resPositionPin = resistancePins.position,
-        .resMinLevelLimitPin = resistancePins.limit,
-        .resBackwardsDirectionIndicatorPin = resistancePins.backwards,
-        .resForwardDirectionIndicatorPin = resistancePins.forwards
+    BikeComputerConfig bikeConfig = {
+        .ledPin = config::LED_PIN,
+        .wakeupPin = config::WAKEUP_PIN,
+        .cadencePin = config::CADENCE_PIN,
+        .resPositionPin = config::RESISTANCE_POSITION_PIN,
+        .resMinLevelLimitPin = config::RESISTANCE_LIMIT_PIN,
+        .resBackwardsDirectionIndicatorPin = config::RESISTANCE_BACKWARDS_PIN,
+        .resForwardDirectionIndicatorPin = config::RESISTANCE_FORWARDS_PIN
     };
-    BikeComputer computer(sys, freq, lvl, bleService, config);
+    BikeComputer computer(sys, cadenceLogic, resistanceLogic, bleService, bikeConfig);
 }
 
 // --- FIX START: Guard setup/loop from Embedded Tests ---

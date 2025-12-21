@@ -3,8 +3,8 @@
 
 #include <cstdint>
 #include "SystemWrapper.h"
-#include "Cadence.h"
-#include "ResistanceLevel.h"
+#include "CadenceLogic.h"
+#include "ResistanceLogic.h"
 #include "IBleService.h"
 #include "Power.h"
 #include "StatusLed.h"
@@ -21,8 +21,8 @@ struct BikeComputerConfig {
 
 class BikeComputer {
     ISystemWrapper &_sys;
-    Cadence &_cadence;
-    ResistanceLevel &_resistance;
+    CadenceLogic &_cadence;
+    ResistanceLogic &_resistance;
     IBleService &_bleService;
     BikeComputerConfig _config;
     StatusLed _led;
@@ -35,8 +35,8 @@ class BikeComputer {
     static constexpr int timePerioudForSendingData = 510;
 
 public:
-    BikeComputer(ISystemWrapper &sys, Cadence &cad, ResistanceLevel &res, IBleService &ble,
-                 BikeComputerConfig config = {27, 15}) noexcept
+    BikeComputer(ISystemWrapper &sys, CadenceLogic &cad, ResistanceLogic &res, IBleService &ble,
+                 BikeComputerConfig config) noexcept
         : _sys(sys), _cadence(cad), _resistance(res), _bleService(ble), _config(config), _led(sys, config.ledPin) {
     }
 
@@ -45,29 +45,13 @@ public:
         _resistance.begin();
         _led.setup();
         _bleService.start();
-        //   setupInterrupts();
-    }
-
-    void setupInterrupts() const {
-        _cadence.enableInterrupt();
-        _resistance.enableInterrupt();
-
-        // Attach interrupts using the config
-        _sys.attachInterrupt(_config.cadencePin, Cadence::isr, FALLING);
-        _sys.attachInterrupt(_config.resPositionPin, ResistanceLevel::isrPosition, CHANGE);
-        _sys.attachInterrupt(_config.resMinLevelLimitPin, ResistanceLevel::isrLimit, RISING);
-
-        // Note: resBackwardsPin and resForwardPin are not attached here,
-        // but they are now documented in the config object.
     }
 
     void update() {
-        // POLL SENSORS (New Step)
-        // When you switch to Interrupts, you will just comment these two lines out!
-        _cadence.poll();
-        _resistance.poll();
+        _cadence.update();
+        _resistance.update();
 
-        const int16_t cad = _cadence.cadence();
+        const float cad = _cadence.cadence();
 
         _led.update(cad);
 
@@ -85,12 +69,12 @@ public:
             lastLevel = l;
         }
 
-        currentPower = Power::calculate({l, static_cast<float>(cad)});
+        currentPower = Power::calculate({l, cad});
 
         const unsigned long periodSinceLastTransaction = ms - lastDataSentTimestamp;
 
         if (periodSinceLastTransaction >= timePerioudForSendingData) {
-            if (cad >= 0) {
+            if (!_cadence.shouldSleep()) {
                 _bleService.updateData(currentPower, _cadence.totalRevs(),
                                        _cadence.getGattLastCrankRevolutionTimestamp());
                 lastDataSentTimestamp = ms;

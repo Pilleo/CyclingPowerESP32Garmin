@@ -12,8 +12,15 @@ namespace {
     constexpr int MAX_TABLE_CADENCE = 100;
     constexpr int MAX_TABLE_INDEX = MAX_TABLE_CADENCE - MIN_TABLE_CADENCE;
 
+#ifdef ESP32
+#include <pgmspace.h>
+#else
+#define PROGMEM
+#define pgm_read_word(addr) (*(const uint16_t*)(addr))
+#endif
+
     // 81 rows (cadence 20-100), 16 columns (levels 1-16)
-    constexpr std::array<std::array<uint16_t, 16>, 81> powerFromCadenceByLevel = {
+    const std::array<std::array<uint16_t, 16>, 81> powerFromCadenceByLevel PROGMEM = {
     {
         {8, 10, 12, 14, 16, 18, 21, 23, 25, 28, 30, 32, 35, 38, 41, 44},
         {8, 11, 13, 15, 17, 20, 23, 25, 28, 31, 33, 36, 39, 42, 45, 49},
@@ -127,9 +134,9 @@ auto Power::calculate(const PowerCalculationInput input) -> uint16_t {
             power_val = 0;
         } else if (current_cadence > MAX_TABLE_CADENCE) {
             // Extrapolate for cadence > 100
-            power_val = powerFromCadenceByLevel[MAX_TABLE_INDEX][safeLevelIndex] + ((current_cadence - MAX_TABLE_CADENCE) * 2);
+            power_val = pgm_read_word(&powerFromCadenceByLevel[MAX_TABLE_INDEX][safeLevelIndex]) + ((current_cadence - MAX_TABLE_CADENCE) * 2);
         } else {
-            power_val = powerFromCadenceByLevel[cadencePointer][safeLevelIndex];
+            power_val = pgm_read_word(&powerFromCadenceByLevel[cadencePointer][safeLevelIndex]);
         }
         return power_val;
     };
