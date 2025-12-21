@@ -6,14 +6,14 @@
 #include "../common/MockSystemWrapper.h"
 
 // Pins don't matter for logic injection tests
-const uint8_t DUMMY_PIN = 0;
+const ResistanceLevelPins DUMMY_PINS = { .backwards = 0, .limit = 0, .position = 0, .forwards = 0 };
 
 MockSystemWrapper mockSysResCore;
 ResistanceLevel *resCore;
 
 void setUp(void) {
     mockSysResCore.reset();
-    resCore = new ResistanceLevel(DUMMY_PIN, DUMMY_PIN, DUMMY_PIN, DUMMY_PIN, mockSysResCore);
+    resCore = new ResistanceLevel(DUMMY_PINS, mockSysResCore);
 }
 
 void tearDown(void) {

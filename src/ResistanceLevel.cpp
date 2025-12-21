@@ -1,42 +1,46 @@
 #include "ResistanceLevel.h"
+#include <algorithm>
 #include <array>
-ResistanceLevel* ResistanceLevel::_instance = nullptr;
+
+ResistanceLevel *ResistanceLevel::_instance = nullptr;
+
 namespace {
-    struct LevelRange {
-        uint16_t minCount;
-        uint16_t maxCount;
-        uint8_t level;
-    };
+struct LevelRange {
+    uint16_t minCount;
+    uint16_t maxCount;
+    uint8_t level;
+};
 
-    constexpr std::array<LevelRange, 16> LEVEL_RANGES = {{
-        {0,   29,    1},
-        {170, 190,   2},
-        {281, 308,   3},
-        {360, 374,   4},
-        {411, 429,   5},
-        {461, 476,   6},
-        {501, 519,   7},
-        {531, 549,   8},
-        {561, 575,   9},
-        {591, 601,  10},
-        {611, 627,  11},
-        {631, 641,  12},
-        {653, 661,  13},
-        {666, 679,  14},
-        {681, 690,  15},
-        {692, 65535, 16}
-    }};
-}
+constexpr std::array<LevelRange, 16> LEVEL_RANGES = {
+    {{0, 29, 1},
+     {170, 190, 2},
+     {281, 308, 3},
+     {360, 374, 4},
+     {411, 429, 5},
+     {461, 476, 6},
+     {501, 519, 7},
+     {531, 549, 8},
+     {561, 575, 9},
+     {591, 601, 10},
+     {611, 627, 11},
+     {631, 641, 12},
+     {653, 661, 13},
+     {666, 679, 14},
+     {681, 690, 15},
+     {692, 65535, 16}}};
+} // namespace
 
-ResistanceLevel::ResistanceLevel(const uint8_t backwardsPin, const uint8_t limitPin, const uint8_t positionPin,
-                                 const uint8_t forwardsPin, ISystemWrapper& sys) noexcept
-    : sys(sys), limitPin(limitPin), backwardsPin(backwardsPin), positionPin(positionPin), forwardsPin(forwardsPin)
-{
-    oldPositionState = false; // Safe default
-    currentLevel = MIN_LEVEL;
-    lastPulseTimestamp = 0;
-    prevDirectionWasForward = true;
-    positionChangeCounter = 0;
+ResistanceLevel::ResistanceLevel(const ResistanceLevelPins& pins, ISystemWrapper &sys) noexcept
+    : sys(sys),
+      limitPin(pins.limit),
+      backwardsPin(pins.backwards),
+      positionPin(pins.position),
+      forwardsPin(pins.forwards),
+      oldPositionState(false),
+      currentLevel(MIN_LEVEL),
+      lastPulseTimestamp(0),
+      prevDirectionWasForward(true),
+      positionChangeCounter(0) {
 }
 
 void ResistanceLevel::begin() {
@@ -126,7 +130,7 @@ auto ResistanceLevel::getPositionChangeCounter() const -> uint16_t {
     // We need to cast 'this' to non-const to access sys?
     // Or make sys mutable.
     // Or just accept that sys.noInterrupts() changes system state, not object state.
-    const ResistanceLevel* nonConstThis = const_cast<ResistanceLevel*>(this);
+    const ResistanceLevel *nonConstThis = const_cast<ResistanceLevel *>(this);
 
     nonConstThis->sys.disableInterrupts();
     const uint16_t snap = positionChangeCounter;
@@ -135,11 +139,14 @@ auto ResistanceLevel::getPositionChangeCounter() const -> uint16_t {
 }
 
 void ResistanceLevel::updateLevelFromCounter() {
-    for (const auto& range : LEVEL_RANGES) {
-        if (positionChangeCounter >= range.minCount && positionChangeCounter <= range.maxCount) {
-            currentLevel = range.level;
-            return;
-        }
+    const auto *const levelRange = std::find_if(LEVEL_RANGES.cbegin(), LEVEL_RANGES.cend(),
+                                 [this](const LevelRange &range) -> bool {
+                                     return positionChangeCounter >= range.minCount && positionChangeCounter <= range.maxCount;
+                                 });
+
+    const bool isLevelFound = levelRange != LEVEL_RANGES.cend();
+    if (isLevelFound) {
+        currentLevel = levelRange->level;
     }
 }
 
@@ -177,7 +184,9 @@ void ResistanceLevel::onPositionPulse(const uint32_t timestampMs, const bool isM
         updateLevelFromCounter();
     }
 }
-void ResistanceLevel::poll() { // Was update()
+
+void ResistanceLevel::poll() {
+    // Was update()
     // 1. Read Inputs
     const bool pinBackRaw = (sys.digitalRead(backwardsPin) != 0);
     const bool pinForwardRaw = (sys.digitalRead(forwardsPin) != 0);

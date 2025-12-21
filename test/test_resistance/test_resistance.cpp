@@ -3,22 +3,24 @@
 #include "../common/MockSystemWrapper.h"
 
 // Define dummy pins for testing
-const uint8_t BACKWARDS_PIN = 4;
-const uint8_t LIMIT_PIN = 18;
-const uint8_t FORWARD_PIN = 19;
-const uint8_t POSITION_PIN = 23;
+const ResistanceLevelPins PINS = {
+    .backwards = 4,
+    .limit = 18,
+    .position = 23,
+    .forwards = 19
+};
 
 static MockSystemWrapper mockSys;
 ResistanceLevel *resistanceLevelInstance;
 
 void setUp(void) {
     mockSys.reset();
-    mockSys.setPinState(LIMIT_PIN, false);
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, false);
-    mockSys.setPinState(POSITION_PIN, false);
+    mockSys.setPinState(PINS.limit, false);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, false);
+    mockSys.setPinState(PINS.position, false);
 
-    resistanceLevelInstance = new ResistanceLevel(BACKWARDS_PIN, LIMIT_PIN, POSITION_PIN, FORWARD_PIN, mockSys);
+    resistanceLevelInstance = new ResistanceLevel(PINS, mockSys);
     resistanceLevelInstance->begin(); // Initialize hardware state
 }
 
@@ -35,8 +37,8 @@ void simulate_position_change(unsigned long &time) {
     mockSys.setMillis(time);
 
     // Toggle the position pin state and call level() to process the change
-    bool currentState = mockSys.digitalRead(POSITION_PIN);
-    mockSys.setPinState(POSITION_PIN, !currentState);
+    bool currentState = mockSys.digitalRead(PINS.position);
+    mockSys.setPinState(PINS.position, !currentState);
     resistanceLevelInstance->poll();
     resistanceLevelInstance->level();
 }
@@ -52,8 +54,8 @@ void test_resistance_initialization() {
 void test_resistance_limit_switch_reset() {
     unsigned long time = 0;
     mockSys.setMillis(time);
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // 1. Move to Level 4 (Counter ~370)
     for (int i = 0; i < 370; ++i) {
@@ -62,11 +64,11 @@ void test_resistance_limit_switch_reset() {
     TEST_ASSERT_EQUAL(4, resistanceLevelInstance->level());
 
     // 2. Simulate moving backwards
-    mockSys.setPinState(BACKWARDS_PIN, true);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, true);
+    mockSys.setPinState(PINS.forwards, false);
 
     // 3. Simulate limitPin going HIGH
-    mockSys.setPinState(LIMIT_PIN, true);
+    mockSys.setPinState(PINS.limit, true);
 
     // 4. Call level() which triggers the check
     resistanceLevelInstance->poll();
@@ -74,9 +76,9 @@ void test_resistance_limit_switch_reset() {
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
 
     // 6. Verify positionChangeCounter is 0 by moving forward slightly
-    mockSys.setPinState(LIMIT_PIN, false);
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.limit, false);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
     for (int i = 0; i < 50; ++i) {
         simulate_position_change(time);
     }
@@ -88,9 +90,9 @@ void test_resistance_level_hysteresis() {
     unsigned long time = 0;
     mockSys.setMillis(time);
 
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
-    mockSys.setPinState(LIMIT_PIN, false);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
+    mockSys.setPinState(PINS.limit, false);
 
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->level());
     TEST_ASSERT_EQUAL(0, resistanceLevelInstance->getPositionChangeCounter());
@@ -116,11 +118,11 @@ void test_resistance_level_hysteresis() {
 void test_resistance_direction_detection() {
     unsigned long time = 0;
     mockSys.setMillis(time);
-    mockSys.setPinState(LIMIT_PIN, false);
+    mockSys.setPinState(PINS.limit, false);
 
     // 1. Forward
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
     for (int i = 0; i < 50; ++i) {
         simulate_position_change(time);
     }
@@ -128,8 +130,8 @@ void test_resistance_direction_detection() {
     TEST_ASSERT_TRUE(initialCounter > 0);
 
     // 2. Backward
-    mockSys.setPinState(BACKWARDS_PIN, true);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, true);
+    mockSys.setPinState(PINS.forwards, false);
 
     // 3. Toggle positionPin twice
     simulate_position_change(time); // Consumed by hysteresis
@@ -147,8 +149,8 @@ void test_resistance_direction_detection() {
 void test_resistance_dead_zone_speed() {
     unsigned long time = 0;
     mockSys.setMillis(time);
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // 1. Initial Pulse (Startup/Pause wake)
     time = 2000;
@@ -169,15 +171,15 @@ void test_resistance_idle_noise() {
     mockSys.setMillis(time);
 
     // 1. Get Counter to 1
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
     time = 2000;
     simulate_position_change(time);
     TEST_ASSERT_EQUAL(1, resistanceLevelInstance->getPositionChangeCounter());
 
     // 2. Set IDLE state (Both Low)
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, false);
 
     // 3. Simulate Noise (Fast pulse)
     time += 15; // +10 in helper = 25ms total
@@ -186,8 +188,8 @@ void test_resistance_idle_noise() {
     TEST_ASSERT_EQUAL_MESSAGE(1, resistanceLevelInstance->getPositionChangeCounter(), "Counter changed during IDLE state");
 
     // 4. Set INVALID state (Both High)
-    mockSys.setPinState(BACKWARDS_PIN, true);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, true);
+    mockSys.setPinState(PINS.forwards, true);
 
     simulate_position_change(time);
     TEST_ASSERT_EQUAL_MESSAGE(1, resistanceLevelInstance->getPositionChangeCounter(), "Counter changed during INVALID state");
@@ -196,8 +198,8 @@ void test_resistance_idle_noise() {
 void test_resistance_gap_latching() {
     unsigned long time = 0;
     mockSys.setMillis(time);
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // 1. Move to end of Level 1 (Counter 29)
     time = 2000;
@@ -224,8 +226,8 @@ void test_resistance_gap_latching() {
 void test_resistance_exact_timing_boundaries() {
     unsigned long time = 0;
     mockSys.setMillis(time);
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // 1. Establish baseline (Counter 1)
     time = 2000;
@@ -250,8 +252,8 @@ void test_resistance_exact_timing_boundaries() {
 void test_limit_switch_ignored_while_forward() {
     unsigned long time = 0;
     mockSys.setMillis(time);
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // 1. Move to Counter 10
     time = 2000;
@@ -263,7 +265,7 @@ void test_limit_switch_ignored_while_forward() {
     TEST_ASSERT_EQUAL(10, resistanceLevelInstance->getPositionChangeCounter());
 
     // 2. Trigger Limit Switch
-    mockSys.setPinState(LIMIT_PIN, true);
+    mockSys.setPinState(PINS.limit, true);
 
     // 3. Call update
     resistanceLevelInstance->poll();
@@ -277,8 +279,8 @@ void test_backward_stability_and_hysteresis() {
     mockSys.setMillis(time);
 
     // 1. BUILD MOMENTUM FORWARD (Count to 5)
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // Initial pulse (Wake up)
     time = 2000;
@@ -294,8 +296,8 @@ void test_backward_stability_and_hysteresis() {
     // 2. SWITCH DIRECTION IMMEDIATELY (FORWARD -> BACKWARD)
     // The "Hysteresis" Check: First pulse should NOT decrement.
     // It consumes the pulse to update 'movingForward' history from True to False.
-    mockSys.setPinState(BACKWARDS_PIN, true);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, true);
+    mockSys.setPinState(PINS.forwards, false);
 
     time += 20; // Fast pulse
     simulate_position_change(time);
@@ -312,8 +314,8 @@ void test_backward_stability_and_hysteresis() {
 
     // 4. IDLE INTERRUPTION
     // Go Idle (Both False). This sets internal history (movingForward) to False.
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, false);
 
     // Simulate a loop cycle without pulse to flush state
     resistanceLevelInstance->poll();
@@ -322,8 +324,8 @@ void test_backward_stability_and_hysteresis() {
     // 5. RESUME BACKWARD (FAST)
     // Since history was reset to False during idle, a fast backward pulse
     // satisfies (!movingForward). It should decrement IMMEDIATELY.
-    mockSys.setPinState(BACKWARDS_PIN, true);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, true);
+    mockSys.setPinState(PINS.forwards, false);
 
     time += 20;
     simulate_position_change(time);
@@ -336,8 +338,8 @@ void test_noise_rejection_in_idle_state() {
     mockSys.setMillis(time);
 
     // 1. Set up a counter value of 5
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
     time = 2000;
     simulate_position_change(time); // Pulse 1
     for(int i=0; i<4; i++) {
@@ -348,11 +350,11 @@ void test_noise_rejection_in_idle_state() {
 
     // 2. Set IDLE State (Both Pins LOW)
     // This represents the user stopping pedaling.
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, false);
 
     // 3. Simulate NOISE (Fast pulses while Idle)
-    // In the "Buggy" logic (generic else), these are interpreted as
+    // In a "Buggy" logic (generic else), these are interpreted as
     // "Not Forward" -> "Backward" -> Decrement.
     // In the "Fixed" logic (strict else if), these are ignored.
     time += 20;
@@ -366,8 +368,8 @@ void test_noise_rejection_in_idle_state() {
 
     // 4. Set INVALID State (Both Pins HIGH)
     // This represents a short or sensor glitch.
-    mockSys.setPinState(BACKWARDS_PIN, true);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, true);
+    mockSys.setPinState(PINS.forwards, true);
 
     time += 20;
     simulate_position_change(time); // Glitch Pulse
@@ -380,8 +382,8 @@ void test_direction_switch_hysteresis() {
     mockSys.setMillis(time);
 
     // 1. Move Forward (Counter = 5)
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
     time = 2000;
     simulate_position_change(time);
     for(int i=0; i<4; i++) {
@@ -391,8 +393,8 @@ void test_direction_switch_hysteresis() {
     TEST_ASSERT_EQUAL(5, resistanceLevelInstance->getPositionChangeCounter());
 
     // 2. Switch Direction to BACKWARD
-    mockSys.setPinState(BACKWARDS_PIN, true);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, true);
+    mockSys.setPinState(PINS.forwards, false);
 
     // 3. First Backward Pulse (Fast)
     // Should be consumed by hysteresis (History update: True -> False)
@@ -412,8 +414,8 @@ void test_resume_after_long_pause_any_direction() {
     mockSys.setMillis(time);
 
     // 1. Move Forward to 5
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
     time = 2000;
     simulate_position_change(time);
     for(int i=0; i<4; i++) {
@@ -427,8 +429,8 @@ void test_resume_after_long_pause_any_direction() {
 
     // 3. Resume BACKWARD immediately
     // Since it's a "Long Pause", hysteresis should be bypassed or handled by isResumeAfterPause logic.
-    mockSys.setPinState(BACKWARDS_PIN, true);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, true);
+    mockSys.setPinState(PINS.forwards, false);
 
     simulate_position_change(time);
 
@@ -444,8 +446,8 @@ void test_strict_idle_noise_rejection() {
     mockSys.setMillis(time);
 
     // 1. Setup: Move Forward to Level 1 (Counter = 10)
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // Initial wake-up pulse
     time = 2000;
@@ -460,8 +462,8 @@ void test_strict_idle_noise_rejection() {
 
     // 2. Set IDLE State (Both Pins LOW)
     // The user stops pedaling/adjusting.
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, false);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, false);
 
     // 3. Simulate Multiple Noise Pulses
     // In a "buggy" implementation (generic else), these would decrement the counter.
@@ -491,16 +493,16 @@ void test_resistance_invalid_hardware_state() {
     // Setup stable state
     unsigned long time = 1000;
     mockSys.setMillis(time);
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // Pulse once to ensure we are "moving forward"
     simulate_position_change(time);
     uint16_t initialCounter = resistanceLevelInstance->getPositionChangeCounter();
 
     // Enter Invalid State: Both HIGH
-    mockSys.setPinState(BACKWARDS_PIN, true);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, true);
+    mockSys.setPinState(PINS.forwards, true);
 
     // Trigger position pulse
     simulate_position_change(time);
@@ -522,8 +524,8 @@ void test_resistance_counter_overflow() {
     mockSys.setMillis(time);
 
     // Setup Forward movement
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // We can't loop 65000 times in a unit test easily without taking too long?
     // It's just memory updates, it's fast.
@@ -581,8 +583,8 @@ void test_resistance_noisy_transition_baseline() {
     mockSys.setMillis(time);
 
     // Setup: Ready to move forward
-    mockSys.setPinState(BACKWARDS_PIN, false);
-    mockSys.setPinState(FORWARD_PIN, true);
+    mockSys.setPinState(PINS.backwards, false);
+    mockSys.setPinState(PINS.forwards, true);
 
     // 1. Establish initial state with a "Long Pause" to guarantee system is active
     // This increments the counter once and sets 'prevDirectionWasForward = true'.
@@ -592,7 +594,7 @@ void test_resistance_noisy_transition_baseline() {
     uint16_t startCounter = resistanceLevelInstance->getPositionChangeCounter();
 
     // Capture current pin state to flip it correctly
-    bool currentPinState = (mockSys.digitalRead(POSITION_PIN) != 0);
+    bool currentPinState = (mockSys.digitalRead(PINS.position) != 0);
     bool targetState = !currentPinState;
 
     // SIMULATE NOISY EDGE
@@ -603,7 +605,7 @@ void test_resistance_noisy_transition_baseline() {
     // 1. Valid Transition (Flip State)
     time += 30;
     mockSys.setMillis(time);
-    mockSys.setPinState(POSITION_PIN, targetState);
+    mockSys.setPinState(PINS.position, targetState);
     resistanceLevelInstance->poll();
     resistanceLevelInstance->level(); // Process valid edge
 
@@ -611,7 +613,7 @@ void test_resistance_noisy_transition_baseline() {
     // Delta = 2ms. Logic: 2ms < 8ms (DEBOUNCE_TIME_MS). Ignored.
     time += 2;
     mockSys.setMillis(time);
-    mockSys.setPinState(POSITION_PIN, !targetState);
+    mockSys.setPinState(PINS.position, !targetState);
     resistanceLevelInstance->poll();
     resistanceLevelInstance->level();
 
@@ -619,7 +621,7 @@ void test_resistance_noisy_transition_baseline() {
     // Delta from last valid = 4ms. Ignored.
     time += 2;
     mockSys.setMillis(time);
-    mockSys.setPinState(POSITION_PIN, targetState);
+    mockSys.setPinState(PINS.position, targetState);
     resistanceLevelInstance->poll();
     resistanceLevelInstance->level();
 

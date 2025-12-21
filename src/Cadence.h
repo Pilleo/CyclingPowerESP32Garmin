@@ -4,16 +4,15 @@
 #include <cstdint>
 #include "SystemWrapper.h"
 // ESP32 specific attribute for ISRs to run from RAM (faster/safer)
-#if defined(ESP32)
-    #include "esp_attr.h"
-    #define ISR_ATTR IRAM_ATTR
+#ifdef ESP32
+#include "esp_attr.h"
+#define ISR_ATTR IRAM_ATTR
 #else
-    #define ISR_ATTR
+#define ISR_ATTR
 #endif
-class Cadence
-{
+class Cadence {
 public:
-    explicit Cadence(uint8_t pinn, ISystemWrapper& sys) noexcept;
+    explicit Cadence(uint8_t pinn, ISystemWrapper &sys) noexcept;
 
     void begin(); // Initialize hardware state
 
@@ -31,7 +30,9 @@ public:
     auto cadence() -> float;
 
     auto lastTimestamp() const -> uint32_t;
+
     auto getGattLastCrankRevolutionTimestamp() const -> uint16_t;
+
     auto totalRevs() const -> uint32_t;
 
     // Core Logic (Public for Tests/ISRs)
@@ -48,7 +49,7 @@ public:
     static void isr();
 
 private:
-    ISystemWrapper& sys;
+    ISystemWrapper &sys;
     const uint8_t pin;
     float rpm = 0;
 
@@ -65,7 +66,7 @@ private:
     static constexpr uint32_t MAX_IDLE_TIMEOUT_MS = 5000;
     static constexpr uint32_t DEEP_SLEEP_TIMEOUT_MS = 60000 * 15;
     // NEW: Static pointer to the active instance
-    static Cadence* _instance;
+    static Cadence *_instance;
 };
 
 #endif //CADENCE_H

@@ -46,7 +46,8 @@ void test_cadence_isr_bridge() {
 void test_resistance_isr_bridge() {
     // 1. Setup with explicit pins
     // Back=10, Fwd=12, Pos=23, Limit=11
-    ResistanceLevel res2(10, 11, 23, 12, mockSysBridge);
+    const ResistanceLevelPins pins = { .backwards = 10, .limit = 11, .position = 23, .forwards = 12 };
+    ResistanceLevel res2(pins, mockSysBridge);
     res2.begin(); // Initialize hardware state (reads default HIGH from mock)
     res2.enableInterrupt();
 
@@ -72,7 +73,8 @@ void test_resistance_isr_bridge() {
 
 void test_resistance_limit_isr_bridge() {
     // 1. Setup
-    ResistanceLevel res(10, 11, 23, 12, mockSysBridge);
+    const ResistanceLevelPins pins = { .backwards = 10, .limit = 11, .position = 23, .forwards = 12 };
+    ResistanceLevel res(pins, mockSysBridge);
     res.begin(); // Initialize hardware state
     res.enableInterrupt();
 

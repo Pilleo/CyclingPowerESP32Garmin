@@ -9,24 +9,32 @@
 
 class NimBleStackAdapter : public IBleStackAdapter {
     class ServerCallbacks : public BLEServerCallbacks {
-        NimBleStackAdapter& _adapter;
+        NimBleStackAdapter &_adapter;
+
     public:
-        ServerCallbacks(NimBleStackAdapter& adapter) : _adapter(adapter) {}
-        void onConnect(BLEServer* pServer, NimBLEConnInfo& connInfo) override {
-            if (_adapter._callbacks) _adapter._callbacks->onConnect();
+        explicit ServerCallbacks(NimBleStackAdapter &adapter) : _adapter(adapter) {
         }
-        void onDisconnect(BLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
-            if (_adapter._callbacks) _adapter._callbacks->onDisconnect();
+
+        void onConnect(BLEServer * /*pServer*/, NimBLEConnInfo & /*connInfo*/) override {
+            if (_adapter._callbacks != nullptr) {
+                _adapter._callbacks->onConnect();
+            }
+        }
+
+        void onDisconnect(BLEServer * /*pServer*/, NimBLEConnInfo & /*connInfo*/, int /*reason*/) override {
+            if (_adapter._callbacks != nullptr) {
+                _adapter._callbacks->onDisconnect();
+            }
         }
     };
 
-    BLEServer* _pServer = nullptr;
-    Callbacks* _callbacks = nullptr;
-    ServerCallbacks* _serverCallbacks = nullptr;
+    BLEServer *_pServer = nullptr;
+    Callbacks *_callbacks = nullptr;
+    ServerCallbacks *_serverCallbacks = nullptr;
 
     // Map to store services and characteristics
     // Simple mapping: UUID string -> BLEService*
-    std::map<std::string, BLEService*> _services;
+    std::map<std::string, BLEService *> _services;
 
     // We need to map our opaque handle back to BLECharacteristic*
     // Since we return void*, we can just cast BLECharacteristic* to void* and back.
@@ -34,7 +42,7 @@ class NimBleStackAdapter : public IBleStackAdapter {
 public:
     NimBleStackAdapter() = default;
 
-    void init(const char* deviceName) override {
+    void init(const char *deviceName) override {
         NimBLEDevice::init(deviceName);
         _pServer = BLEDevice::createServer();
         _serverCallbacks = new ServerCallbacks(*this);
@@ -45,54 +53,56 @@ public:
         BLEDevice::startAdvertising();
     }
 
-    void setCallbacks(Callbacks* callbacks) override {
+    void setCallbacks(Callbacks *callbacks) override {
         _callbacks = callbacks;
     }
 
-    void createService(const char* uuid) override {
-        BLEService* pService = _pServer->createService(NimBLEUUID(uuid));
+    void createService(const char *uuid) override {
+        BLEService *pService = _pServer->createService(NimBLEUUID(uuid));
         _services[uuid] = pService;
     }
 
-    void startService(const char* uuid) override {
+    void startService(const char *uuid) override {
         if (_services.find(uuid) != _services.end()) {
             _services[uuid]->start();
         }
     }
 
-    CharHandle createCharacteristic(const char* serviceUuid, const char* charUuid, uint32_t properties) override {
-        if (_services.find(serviceUuid) == _services.end()) return nullptr;
+    auto createCharacteristic(const char *serviceUuid, const char *charUuid,
+                              const uint32_t properties) -> CharHandle override {
+        if (_services.find(serviceUuid) == _services.end()) {
+            return nullptr;
+        }
 
         // Map properties. Assuming simple mapping for now.
         // NimBLE properties are bitmasks.
         uint32_t nimProps = 0;
-        if (properties & PROP_READ) nimProps |= NIMBLE_PROPERTY::READ;
-        if (properties & PROP_NOTIFY) nimProps |= NIMBLE_PROPERTY::NOTIFY;
+        if ((properties & PROP_READ) != 0U) { nimProps |= NIMBLE_PROPERTY::READ; }
+        if ((properties & PROP_NOTIFY) != 0U) { nimProps |= NIMBLE_PROPERTY::NOTIFY; }
 
-        BLECharacteristic* pChar = _services[serviceUuid]->createCharacteristic(NimBLEUUID(charUuid), nimProps);
-        return static_cast<CharHandle>(pChar);
+        return _services[serviceUuid]->createCharacteristic(NimBLEUUID(charUuid), nimProps);
     }
 
-    void setCharacteristicValue(CharHandle handle, const uint8_t* data, size_t length) override {
-        if (!handle) return;
-        static_cast<BLECharacteristic*>(handle)->setValue(data, length);
+    void setCharacteristicValue(CharHandle handle, const uint8_t *data, const size_t length) override {
+        if (handle == nullptr) { return; }
+        static_cast<BLECharacteristic *>(handle)->setValue(data, length);
     }
 
-    void setCharacteristicValue(CharHandle handle, uint8_t value) override {
-        if (!handle) return;
-        static_cast<BLECharacteristic*>(handle)->setValue(value);
+    void setCharacteristicValue(CharHandle handle, const uint8_t value) override {
+        if (handle == nullptr) { return; }
+        static_cast<BLECharacteristic *>(handle)->setValue(value);
     }
 
     void notify(CharHandle handle) override {
-        if (!handle) return;
-        static_cast<BLECharacteristic*>(handle)->notify();
+        if (handle == nullptr) { return; }
+        (void) static_cast<BLECharacteristic *>(handle)->notify();
     }
 
-    void addServiceToAdvertising(const char* uuid) override {
+    void addServiceToAdvertising(const char *uuid) override {
         BLEDevice::getAdvertising()->addServiceUUID(NimBLEUUID(uuid));
     }
 
-    void setAppearance(uint16_t appearance) override {
+    void setAppearance(const uint16_t appearance) override {
         BLEDevice::getAdvertising()->setAppearance(appearance);
     }
 };

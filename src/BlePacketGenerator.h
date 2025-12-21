@@ -44,16 +44,15 @@ public:
     static size_t generatePacket(const uint16_t powerWatts,
                                  const uint32_t totalCrankRevs,
                                  const uint16_t lastCrankTime,
-                                 uint8_t* buffer)
-    {
+                                 uint8_t *buffer) {
         CyclingPowerMeasurement packet{};
         packet.flags = CPM_FLAG_WHEEL_REV_DATA_PRESENT | CPM_FLAG_CRANK_REV_DATA_PRESENT;
         packet.instantaneousPower = powerWatts;
-        
+
         // Simulate wheel data from crank data, as some applications require it.
         packet.cumulativeWheelRevs = totalCrankRevs * WHEEL_TO_CRANK_REVOLUTION_RATIO;
         packet.lastWheelEventTime = lastCrankTime * WHEEL_TO_CRANK_TIME_RATIO;
-        
+
         packet.cumulativeCrankRevs = static_cast<uint16_t>(totalCrankRevs);
         packet.lastCrankEventTime = lastCrankTime;
 

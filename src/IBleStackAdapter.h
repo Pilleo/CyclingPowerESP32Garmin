@@ -8,6 +8,7 @@ class IBleStackAdapter {
 public:
     struct Callbacks {
         virtual void onConnect() = 0;
+
         virtual void onDisconnect() = 0;
     };
 
@@ -17,24 +18,30 @@ public:
 
     virtual ~IBleStackAdapter() = default;
 
-    virtual void init(const char* deviceName) = 0;
+    virtual void init(const char *deviceName) = 0;
+
     virtual void startAdvertising() = 0;
-    virtual void setCallbacks(Callbacks* callbacks) = 0;
+
+    virtual void setCallbacks(Callbacks *callbacks) = 0;
 
     // Abstract Characteristic Handle
-    using CharHandle = void*;
+    using CharHandle = void *;
 
-    virtual void createService(const char* uuid) = 0;
-    virtual void startService(const char* uuid) = 0;
+    virtual void createService(const char *uuid) = 0;
 
-    virtual auto createCharacteristic(const char* serviceUuid, const char* charUuid, uint32_t properties) -> CharHandle = 0;
+    virtual void startService(const char *uuid) = 0;
 
-    virtual void setCharacteristicValue(CharHandle handle, const uint8_t* data, size_t length) = 0;
+    virtual auto createCharacteristic(const char *serviceUuid, const char *charUuid, uint32_t properties) -> CharHandle
+    = 0;
+
+    virtual void setCharacteristicValue(CharHandle handle, const uint8_t *data, size_t length) = 0;
+
     virtual void setCharacteristicValue(CharHandle handle, uint8_t value) = 0; // Overload for byte
     virtual void notify(CharHandle handle) = 0;
 
     // For advertising setup
-    virtual void addServiceToAdvertising(const char* uuid) = 0;
+    virtual void addServiceToAdvertising(const char *uuid) = 0;
+
     virtual void setAppearance(uint16_t appearance) = 0;
 };
 

@@ -4,20 +4,29 @@
 #include <cstdint>
 #include "SystemWrapper.h"
 #ifdef ESP32
-    #include "esp_attr.h"
-    #define ISR_ATTR IRAM_ATTR
+#include "esp_attr.h"
+#define ISR_ATTR IRAM_ATTR
 #else
-    #define ISR_ATTR
+#define ISR_ATTR
 #endif
-class ResistanceLevel
-{
+
+struct ResistanceLevelPins {
+    const uint8_t backwards;
+    const uint8_t limit;
+    const uint8_t position;
+    const uint8_t forwards;
+};
+
+class ResistanceLevel {
 public:
-    explicit ResistanceLevel(uint8_t backwardsPin, uint8_t limitPin, uint8_t positionPin, uint8_t forwardsPin, ISystemWrapper& sys) noexcept;
+    explicit ResistanceLevel(const ResistanceLevelPins& pins, ISystemWrapper &sys) noexcept;
 
     void begin(); // Initialize hardware state
 
     auto getLevel() const -> uint8_t;
+
     auto getPositionChangeCounter() const -> uint16_t;
+
     auto level() const -> uint8_t; // // Wrapper returns level
     /**
       * @brief Polling Driver.
@@ -43,13 +52,18 @@ public:
 
     // NEW: ISR Entry Points
     void enableInterrupt();
+
     void handlePositionInterrupt();
+
     static void isrPosition() ISR_ATTR;
+
     // NEW: ISR for Limit Switch
     void handleLimitInterrupt();
+
     static void isrLimit() ISR_ATTR;
+
 private:
-    ISystemWrapper& sys;
+    ISystemWrapper &sys;
     const uint8_t limitPin;
     const uint8_t backwardsPin;
     const uint8_t positionPin;
@@ -70,7 +84,7 @@ private:
     static constexpr unsigned long MOVEMENT_TIMEOUT_MS = 50;
     static constexpr unsigned long PAUSE_TIMEOUT_MS = 1700;
     // NEW: Static pointer
-    static ResistanceLevel* _instance;
+    static ResistanceLevel *_instance;
 };
 
 #endif // RESISTANCE_LEVEL_H

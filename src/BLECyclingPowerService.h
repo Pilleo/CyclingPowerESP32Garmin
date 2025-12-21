@@ -13,7 +13,7 @@
 
 class BLECyclingPowerService : public IBleService, public IBleStackAdapter::Callbacks {
 private:
-    IBleStackAdapter& _bleStack;
+    IBleStackAdapter &_bleStack;
 
     // Characteristic handles
     IBleStackAdapter::CharHandle _powerMeasurementCharacteristic = nullptr;
@@ -25,23 +25,33 @@ private:
 
     // Private helper methods for setup
     void setupPowerService();
+
     void setupBatteryService();
+
     void setupAdvertising() const;
 
 public:
-    explicit BLECyclingPowerService(IBleStackAdapter& bleStack) noexcept;
+    explicit BLECyclingPowerService(IBleStackAdapter &bleStack) noexcept;
+
     ~BLECyclingPowerService() override = default;
-    BLECyclingPowerService(const BLECyclingPowerService&) = delete;
-    auto operator=(const BLECyclingPowerService&) -> BLECyclingPowerService& = delete;
-    BLECyclingPowerService(BLECyclingPowerService&&) = delete;
-    auto operator=(BLECyclingPowerService&&) -> BLECyclingPowerService& = delete;
+
+    BLECyclingPowerService(const BLECyclingPowerService &) = delete;
+
+    auto operator=(const BLECyclingPowerService &) -> BLECyclingPowerService & = delete;
+
+    BLECyclingPowerService(BLECyclingPowerService &&) = delete;
+
+    auto operator=(BLECyclingPowerService &&) -> BLECyclingPowerService & = delete;
 
     void start() override;
+
     void updateData(uint16_t power, uint32_t totalRevolutions, uint16_t crankEventTime) override;
+
     auto isConnected() -> bool override;
 
     // IBleStackAdapter::Callbacks implementation
     void onConnect() override;
+
     void onDisconnect() override;
 };
 

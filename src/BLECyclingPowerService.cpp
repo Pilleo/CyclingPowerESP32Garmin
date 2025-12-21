@@ -8,12 +8,12 @@
 #include <array>
 
 // Service and Characteristic UUIDs
-static constexpr const char* BATTERY_SERVICE_UUID_STR = "180F";
-static constexpr const char* BATTERY_LEVEL_CHAR_UUID_STR = "2A19";
-static constexpr const char* CYCLING_POWER_SERVICE_UUID_STR = "1818";
-static constexpr const char* CYCLING_POWER_MEASUREMENT_CHAR_UUID_STR = "2A63";
-static constexpr const char* CYCLING_POWER_FEATURE_CHAR_UUID_STR = "2A65";
-static constexpr const char* SENSOR_LOCATION_CHAR_UUID_STR = "2A5D";
+static constexpr const char *BATTERY_SERVICE_UUID_STR = "180F";
+static constexpr const char *BATTERY_LEVEL_CHAR_UUID_STR = "2A19";
+static constexpr const char *CYCLING_POWER_SERVICE_UUID_STR = "1818";
+static constexpr const char *CYCLING_POWER_MEASUREMENT_CHAR_UUID_STR = "2A63";
+static constexpr const char *CYCLING_POWER_FEATURE_CHAR_UUID_STR = "2A65";
+static constexpr const char *SENSOR_LOCATION_CHAR_UUID_STR = "2A5D";
 
 // Appearance
 static constexpr uint16_t APPEARANCE_CYCLING_POWER = 0x0484;
@@ -21,8 +21,9 @@ static constexpr uint16_t APPEARANCE_CYCLING_POWER = 0x0484;
 // Battery level (dummy value for now)
 static constexpr uint8_t DUMMY_BATTERY_LEVEL = 79;
 
-BLECyclingPowerService::BLECyclingPowerService(IBleStackAdapter& bleStack) noexcept
-    : _bleStack(bleStack) {}
+BLECyclingPowerService::BLECyclingPowerService(IBleStackAdapter &bleStack) noexcept
+    : _bleStack(bleStack) {
+}
 
 void BLECyclingPowerService::start() {
     _bleStack.init("CX6");
@@ -52,7 +53,8 @@ void BLECyclingPowerService::setupPowerService() {
     constexpr uint32_t wheelRevSupported = CPF_WHEEL_REVOLUTION_DATA_SUPPORTED;
     uint32_t featureVal = crankRevSupported | wheelRevSupported;
 
-    _bleStack.setCharacteristicValue(_featureCharacteristic, reinterpret_cast<uint8_t*>(&featureVal), sizeof(featureVal));
+    _bleStack.setCharacteristicValue(_featureCharacteristic, reinterpret_cast<uint8_t *>(&featureVal),
+                                     sizeof(featureVal));
 
     _sensorLocationCharacteristic = _bleStack.createCharacteristic(
         CYCLING_POWER_SERVICE_UUID_STR,
@@ -85,7 +87,8 @@ void BLECyclingPowerService::updateData(uint16_t power, uint32_t totalRevolution
     }
 
     std::array<uint8_t, BlePacketGenerator::MAX_PACKET_SIZE> payload{};
-    const size_t packetSize = BlePacketGenerator::generatePacket(power, totalRevolutions, crankEventTime, payload.data());
+    const size_t packetSize = BlePacketGenerator::generatePacket(power, totalRevolutions, crankEventTime,
+                                                                 payload.data());
 
     _bleStack.setCharacteristicValue(_powerMeasurementCharacteristic, payload.data(), packetSize);
     _bleStack.notify(_powerMeasurementCharacteristic);

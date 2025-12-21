@@ -37,16 +37,16 @@ void Cadence::handleInterrupt() {
     onPulse(now);
 }
 
-Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) noexcept : sys(sys), pin(pinn)
+Cadence::Cadence(const uint8_t pinn, ISystemWrapper& sys) noexcept
+    : sys(sys),
+      pin(pinn),
+      oldState(false),
+      elapsedTimestamp(0),
+      elapsedSampleTimeStamp(0),
+      rev(0),
+      totalRev(0),
+      gattLastCrankRevolutionTimestamp(0)
 {
-    // Initialize state to avoid startup glitches
-    oldState = false; // Safe default
-
-    elapsedTimestamp = 0;
-    elapsedSampleTimeStamp = 0;
-    rev = 0;
-    totalRev = 0;
-    gattLastCrankRevolutionTimestamp = 0;
 }
 
 void Cadence::begin() {

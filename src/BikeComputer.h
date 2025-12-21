@@ -13,17 +13,17 @@ struct BikeComputerConfig {
     uint8_t ledPin;
     uint8_t wakeupPin;
     uint8_t cadencePin;
-    uint8_t resPositionPin;//This pin is blinking a lot when resistance is changing
-    uint8_t resMinLevelLimitPin;//active when resistance is in min state
+    uint8_t resPositionPin; //This pin is blinking a lot when resistance is changing
+    uint8_t resMinLevelLimitPin; //active when resistance is in min state
     uint8_t resBackwardsDirectionIndicatorPin; // supposed to change state rare
-    uint8_t resForwardDirectionIndicatorPin;   // supposed to change state rare
+    uint8_t resForwardDirectionIndicatorPin; // supposed to change state rare
 };
 
 class BikeComputer {
-    ISystemWrapper& _sys;
-    Cadence& _cadence;
-    ResistanceLevel& _resistance;
-    IBleService& _bleService;
+    ISystemWrapper &_sys;
+    Cadence &_cadence;
+    ResistanceLevel &_resistance;
+    IBleService &_bleService;
     BikeComputerConfig _config;
     StatusLed _led;
 
@@ -35,18 +35,20 @@ class BikeComputer {
     static constexpr int timePerioudForSendingData = 510;
 
 public:
-    BikeComputer(ISystemWrapper& sys, Cadence& cad, ResistanceLevel& res, IBleService& ble, BikeComputerConfig config = {27, 15}) noexcept
-        : _sys(sys), _cadence(cad), _resistance(res), _bleService(ble), _config(config), _led(sys, config.ledPin) {}
+    BikeComputer(ISystemWrapper &sys, Cadence &cad, ResistanceLevel &res, IBleService &ble,
+                 BikeComputerConfig config = {27, 15}) noexcept
+        : _sys(sys), _cadence(cad), _resistance(res), _bleService(ble), _config(config), _led(sys, config.ledPin) {
+    }
 
     void setup() {
         _cadence.begin();
         _resistance.begin();
         _led.setup();
         _bleService.start();
-     //   setupInterrupts();
-
+        //   setupInterrupts();
     }
-    void setupInterrupts() {
+
+    void setupInterrupts() const {
         _cadence.enableInterrupt();
         _resistance.enableInterrupt();
 
@@ -58,6 +60,7 @@ public:
         // Note: resBackwardsPin and resForwardPin are not attached here,
         // but they are now documented in the config object.
     }
+
     void update() {
         // POLL SENSORS (New Step)
         // When you switch to Interrupts, you will just comment these two lines out!
@@ -70,8 +73,7 @@ public:
 
         const unsigned long ms = _sys.millis();
         const uint8_t l = _resistance.level();
-        if (lastLevel != l)
-        {
+        if (lastLevel != l) {
 #ifndef NATIVE_TEST
             // Print Level and the raw Counter value to help debug
             Serial.print("RESISTANCE CHANGE: Level ");
@@ -87,15 +89,12 @@ public:
 
         const unsigned long periodSinceLastTransaction = ms - lastDataSentTimestamp;
 
-        if (periodSinceLastTransaction >= timePerioudForSendingData)
-        {
-            if (cad >= 0)
-            {
-                _bleService.updateData(currentPower, _cadence.totalRevs(), _cadence.getGattLastCrankRevolutionTimestamp());
+        if (periodSinceLastTransaction >= timePerioudForSendingData) {
+            if (cad >= 0) {
+                _bleService.updateData(currentPower, _cadence.totalRevs(),
+                                       _cadence.getGattLastCrankRevolutionTimestamp());
                 lastDataSentTimestamp = ms;
-            }
-            else
-            {
+            } else {
                 const bool cadenceState = _sys.digitalRead(_config.wakeupPin) != 0;
                 _sys.enterDeepSleep(_config.wakeupPin, static_cast<int>(!cadenceState));
             }

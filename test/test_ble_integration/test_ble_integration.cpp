@@ -44,7 +44,7 @@ void setUp() {
 
     // Re-construct objects to reset their internal state
     realCadence = new (cadenceBuffer) Cadence(PIN_CADENCE, mockSys);
-    realResistance = new (resistanceBuffer) ResistanceLevel(PIN_BACK, PIN_LIMIT, PIN_POS, PIN_FWD, mockSys);
+    realResistance = new (resistanceBuffer) ResistanceLevel({PIN_BACK, PIN_LIMIT, PIN_POS, PIN_FWD}, mockSys);
 
     // NEW: Create a config that matches the test pins
     BikeComputerConfig testConfig = {
