@@ -62,6 +62,7 @@ void tearDown() {}
 void test_interactive_loop() {
   unsigned long startTime = millis();
   unsigned long lastLog = 0;
+  uint32_t initialHeap = ESP.getFreeHeap();
 
   // Run for 5 minutes
   const unsigned long DURATION = 300 * 1000;
@@ -76,21 +77,35 @@ void test_interactive_loop() {
       float cad = cadence.cadence();
       uint8_t lvl = resistance.level();
       uint16_t revs = cadence.totalRevs();
+      uint32_t currentHeap = ESP.getFreeHeap();
 
       Serial.printf("[STATUS] Time: %lu ms | Cadence: %.2f RPM | Level: %d | "
                     "Revs: %u | HEAP: %u\n",
-                    millis(), cad, lvl, revs, ESP.getFreeHeap());
+                    millis(), cad, lvl, revs, currentHeap);
 
       if (bleService.isConnected()) {
         Serial.println(" -> BLE CONNECTED");
       } else {
         Serial.println(" -> BLE ADVERTISING/DISCONNECTED");
       }
-    }
 
-    // Saturated test: Verify basic sanity
-    TEST_ASSERT_TRUE(ESP.getFreeHeap() > 1000); // Ensure no massive leak
+      // Saturated test: Verify basic sanity
+      TEST_ASSERT_TRUE_MESSAGE(currentHeap > 1000, "Heap critically low!");
+      // Check for significant leak (soft check)
+      if (currentHeap < initialHeap - 5000) {
+        Serial.println("[WARNING] Heap dropped significantly (>5KB)");
+      }
+    }
   }
+
+  uint32_t finalHeap = ESP.getFreeHeap();
+  Serial.printf("=== TEST COMPLETE ===\nInitial Heap: %u | Final Heap: %u | "
+                "Delta: %d\n",
+                initialHeap, finalHeap, (int)finalHeap - (int)initialHeap);
+
+  // Final validation
+  TEST_ASSERT_INT_WITHIN(2000, initialHeap,
+                         finalHeap); // Allow small fragmentation, but no leak
 }
 
 void setup() {

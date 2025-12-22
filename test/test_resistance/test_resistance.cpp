@@ -740,6 +740,36 @@ void test_resistance_rapid_oscillation() {
   TEST_ASSERT_LESS_THAN_MESSAGE(
       5, delta, "Counter drifted significantly during rapid oscillation");
 }
+void test_resistance_poll_limit_switch() {
+  mockSys.reset();
+  mockSys.setMillis(1000);
+
+  ResistanceLevelPins pins = {2, 1, 3, 4}; // back, limit, pos, fwd
+  ResistanceLevel res(pins, mockSys);
+  res.begin();
+
+  // 1. Force level to > 1
+  // Pulse forward enough times to increase level
+  // Level 2 needs ~12 counts (based on LEVEL_RANGES)
+  // We simulate pulses.
+  for (int i = 0; i < 500; i++) {
+    res.onPositionPulse(2000 + i * 20, true, false);
+  }
+  TEST_ASSERT_GREATER_THAN(1, res.level());
+
+  // 2. Setup Limit Switch condition
+  mockSys.setPinState(1, true);  // Limit active
+  mockSys.setPinState(2, false); // Back low
+  mockSys.setPinState(4, false); // Fwd low
+  // implies !isMovingForward && limitActive
+
+  // 3. Trigger poll
+  res.poll();
+
+  // 4. Verify Reset
+  TEST_ASSERT_EQUAL(1, res.level());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_resistance_initialization);
@@ -761,6 +791,7 @@ int main() {
   RUN_TEST(test_resistance_invalid_hardware_state);
   RUN_TEST(test_resistance_counter_overflow);
   RUN_TEST(test_resistance_noisy_transition_baseline);
+  RUN_TEST(test_resistance_poll_limit_switch);
 
   return UNITY_END();
 }
