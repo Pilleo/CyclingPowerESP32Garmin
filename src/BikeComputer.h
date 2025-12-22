@@ -65,8 +65,6 @@ public:
 #if !USE_INTERRUPTS
         _cadence.poll();
         _resistance.poll();
-#else
-        _resistance.update();
 #endif
         const int16_t cad = _cadence.cadence();
 

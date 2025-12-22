@@ -42,23 +42,23 @@ public:
      * @param isMovingForward True if the Forward pin signals movement.
      * @param isMovingBack True if the Backward pin signals movement.
      */
-    void onPositionPulse(uint32_t timestampMs, bool isMovingForward, bool isMovingBack);
+    void onPositionPulse(uint32_t timestampMs, bool isMovingForward, bool isMovingBack) ISR_ATTR;
 
     /**
      * @brief Triggered when the limit switch is active and movement is not forward.
      * Resets calibration.
      */
-    void onLimitReset();
+    void onLimitReset() ISR_ATTR;
 
     // NEW: ISR Entry Points
     void enableInterrupt();
 
-    void handlePositionInterrupt();
+    void handlePositionInterrupt() ISR_ATTR;
 
     static void isrPosition() ISR_ATTR;
 
     // NEW: ISR for Limit Switch
-    void handleLimitInterrupt();
+    void handleLimitInterrupt() ISR_ATTR;
 
     static void isrLimit() ISR_ATTR;
 
@@ -83,7 +83,7 @@ private:
     volatile uint32_t _lastPositionInterruptTime = 0;
 
 
-    void updateLevelFromCounter();
+    void updateLevelFromCounter() ISR_ATTR;
 
     static constexpr uint8_t MIN_LEVEL = 1;
     static constexpr unsigned long DEBOUNCE_TIME_MS = 8;
