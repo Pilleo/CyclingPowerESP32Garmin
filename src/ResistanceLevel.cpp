@@ -57,9 +57,19 @@ void ResistanceLevel::isrPosition() {
     }
 }
 
-void ResistanceLevel::handlePositionInterrupt() {
-    _lastPositionInterruptTime = sys.millis();
-    _positionInterruptFlag = true;
+void ResistanceLevel::handlePositionInterrupt() ISR_ATTR {
+    const bool currentPos = (sys.digitalRead(positionPin) != 0);
+    if (currentPos != oldPositionState) {
+        oldPositionState = currentPos;
+
+        const uint32_t now = sys.millis();
+        const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
+        const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
+        const bool isMovingBack = pinBack && !pinFwd;
+        const bool isMovingForward = pinFwd && !pinBack;
+
+        onPositionPulse(now, isMovingForward, isMovingBack);
+    }
 }
 
 void ResistanceLevel::isrLimit() {
@@ -68,44 +78,19 @@ void ResistanceLevel::isrLimit() {
     }
 }
 
-void ResistanceLevel::handleLimitInterrupt() {
-    _limitInterruptFlag = true;
+void ResistanceLevel::handleLimitInterrupt() ISR_ATTR {
+    const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
+    const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
+    const bool isMovingForward = pinFwd && !pinBack;
+
+    if (!isMovingForward && sys.digitalRead(limitPin) != 0) {
+        onLimitReset();
+    }
 }
 
 void ResistanceLevel::update() {
-    if (_limitInterruptFlag) {
-        sys.disableInterrupts();
-        _limitInterruptFlag = false;
-        sys.enableInterrupts();
-
-        const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
-        const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
-        const bool isMovingForward = pinFwd && !pinBack;
-
-        if (!isMovingForward && sys.digitalRead(limitPin) != 0) {
-            onLimitReset();
-        }
-    }
-
-    if (_positionInterruptFlag) {
-        uint32_t interruptTime;
-        sys.disableInterrupts();
-        _positionInterruptFlag = false;
-        interruptTime = _lastPositionInterruptTime;
-        sys.enableInterrupts();
-
-        const bool currentPos = (sys.digitalRead(positionPin) != 0);
-        if (currentPos != oldPositionState) {
-            oldPositionState = currentPos;
-
-            const bool pinBack = (sys.digitalRead(backwardsPin) != 0);
-            const bool pinFwd = (sys.digitalRead(forwardsPin) != 0);
-            const bool isMovingBack = pinBack && !pinFwd;
-            const bool isMovingForward = pinFwd && !pinBack;
-
-            onPositionPulse(interruptTime, isMovingForward, isMovingBack);
-        }
-    }
+    // In interrupt mode, this function is now a no-op.
+    // The logic has been moved to the ISR handlers.
 }
 
 
@@ -136,7 +121,7 @@ auto ResistanceLevel::getPositionChangeCounter() const -> uint16_t {
     return snap;
 }
 
-void ResistanceLevel::updateLevelFromCounter() {
+void ResistanceLevel::updateLevelFromCounter() ISR_ATTR {
     const auto *const levelRange = std::find_if(LEVEL_RANGES.cbegin(), LEVEL_RANGES.cend(),
                                  [this](const LevelRange &range) -> bool {
                                      return positionChangeCounter >= range.minCount && positionChangeCounter <= range.maxCount;
@@ -148,12 +133,12 @@ void ResistanceLevel::updateLevelFromCounter() {
     }
 }
 
-void ResistanceLevel::onLimitReset() {
+void ResistanceLevel::onLimitReset() ISR_ATTR {
     positionChangeCounter = 0;
     currentLevel = MIN_LEVEL;
 }
 
-void ResistanceLevel::onPositionPulse(const uint32_t timestampMs, const bool isMovingForward, const bool isMovingBack) {
+void ResistanceLevel::onPositionPulse(const uint32_t timestampMs, const bool isMovingForward, const bool isMovingBack) ISR_ATTR {
     const unsigned long sampleTime = timestampMs - lastPulseTimestamp;
 
     // 1. Debounce Logic
