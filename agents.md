@@ -71,7 +71,7 @@ sudo apt install lcov -y
 To compile, test, flash the code to the ESP32:
 
 ```bash
-# Build
+# Build (always run after tests)
 pio run -e lolin32_lite
 
 # Upload

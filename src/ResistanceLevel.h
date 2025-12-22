@@ -83,7 +83,7 @@ private:
     volatile uint32_t _lastPositionInterruptTime = 0;
 
 
-    void updateLevelFromCounter() ISR_ATTR;
+    void ISR_ATTR updateLevelFromCounter() ;
 
     static constexpr uint8_t MIN_LEVEL = 1;
     static constexpr unsigned long DEBOUNCE_TIME_MS = 8;
