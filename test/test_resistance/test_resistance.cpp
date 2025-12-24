@@ -639,6 +639,36 @@ void test_resistance_noisy_transition_baseline() {
   resistanceLevelInstance->poll();
   resistanceLevelInstance->level();
 
+  // 3. Bounce (Return to target state) - 1ms later
+  // Delta from last valid = 2ms since 30. Still ignored logic-wise relative to
+  // last *valid*? No, sampleTime is `timestampMs - lastPulseTimestamp`.
+  // `lastPulseTimestamp` was updated at T=30.
+  // Current T = 30 + 1 + 1 = 32.
+  // 32 - 30 = 2ms. This is edge case if DEBOUNCE=2.
+  // Better use delta < 2.
+  // Let's make noise VERY fast. 0.5ms logic in 1ms steps.
+  // If we set T += 1. 30->31. 31-30=1 < 2. Reject.
+  // Next T += 1. 32. 32-30=2. Accept?
+  // Bounce is usually a rapid toggle.
+  // Let's check `poll()`:
+  // It flips state.
+  // If we want it IGNORED, we must be faster than debounce.
+  // Or the state shouldn't have changed?
+  // Wait, `poll` simply calls `onPositionPulse` if pin changed.
+  // `onPositionPulse` checks debounce.
+  // If ignored, `lastPulseTimestamp` is NOT updated.
+  // So next pulse compares to original T=30.
+
+  // T=30 (Valid). Last=30.
+  // T=30+1. Diff=1. <2. Ignore.
+  // T=30+1+1=32. Diff=2. 2 is NOT > 2. Ignore.
+  // Perfect.
+
+  mockSys.setPinState(PINS.position,
+                      !targetState); // Wait, previous block did this.
+  // Block 2 set to !targetState.
+  // Block 3 sets to targetState.
+
   // 3. Bounce (Return to target state) - 2ms later
   // Delta from last valid = 4ms. Ignored.
   time += 2;
