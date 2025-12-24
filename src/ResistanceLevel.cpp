@@ -59,6 +59,12 @@ void ISR_ATTR ResistanceLevel::handlePositionInterrupt() {
     const bool isMovingBack = pinBack && !pinFwd;
     const bool isMovingForward = pinFwd && !pinBack;
 
+    // Safety: Check limit switch during position pulses too (catch-all for
+    // drift)
+    if (!isMovingForward && sys.digitalRead(limitPin) != 0) {
+      onLimitReset();
+    }
+
     onPositionPulse(now, isMovingForward, isMovingBack);
   }
 }

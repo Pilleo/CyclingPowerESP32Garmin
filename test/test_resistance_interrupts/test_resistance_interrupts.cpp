@@ -67,7 +67,7 @@ void test_fast_motor_movement_no_loss() {
   // So we assume we catch half the edges? or fewer?
   // Ideally we catch ALL valid edges if they are real movement.
 
-  TEST_ASSERT_EQUAL_MESSAGE(2, count, "Should count all edges");
+  TEST_ASSERT_EQUAL_MESSAGE(20, count, "Should count all edges");
 }
 
 // Test 2: Verify Interrupt Race with Direction Pins
@@ -103,9 +103,61 @@ void test_direction_change_during_isr() {
   TEST_ASSERT_EQUAL(0, res.getPositionChangeCounter());
 }
 
-int main() {
+void test_limit_drift_recovery(void) {
+  // Scenario: System is at limit (Counter 0).
+  ResistanceLevelPins pins = {2, 1, 3, 4};
+  mockSys.setPinState(3, false); // Start Low
+  ResistanceLevel res(pins, mockSys);
+  res.begin();           // reads Low
+  res.enableInterrupt(); // Important for ISR testing
+
+  // 1. Limit Active
+  mockSys.setPinState(1, true); // Limit Active
+  // Trigger Limit ISR
+  res.handleLimitInterrupt();
+  TEST_ASSERT_EQUAL(0, res.getPositionChangeCounter());
+
+  // 2. Glitch: "Forward" detected during a position pulse
+  // Pins: Back=Low, Fwd=High (Moving Forward)
+  mockSys.setPinState(2, false);
+  mockSys.setPinState(4, true);
+
+  // Pulse
+  res.handlePositionInterrupt(); // Initial call to sync
+
+  // Wait > Debounce
+  mockSys.setMillis(mockSys.millis() + 20);
+
+  // Edge Change (Pulse)
+  mockSys.setPinState(3, true);
+  res.handlePositionInterrupt();
+
+  // Should have incremented because we "appeared" to be moving forward
+  TEST_ASSERT_EQUAL(1, res.getPositionChangeCounter());
+
+  // 3. Glitch clears. Now we are stopped (Back=Low, Fwd=Low)
+  // But Limit is STILL ACTIVE.
+  mockSys.setPinState(2, false);
+  mockSys.setPinState(4, false); // Stopped
+
+  // Wait > Debounce
+  mockSys.setMillis(mockSys.millis() + 20);
+
+  // Next Pulse (e.g. vibration).
+  mockSys.setPinState(3, false); // Edge
+  res.handlePositionInterrupt();
+
+  // EXPECTATION:
+  // Standard ISR: 'isMovingBack' is False. No decrement. Counter stays 1.
+  // Robust ISR (Like Polling): '!isMovingForward' is True. Limit is True. RESET
+  // to 0.
+  TEST_ASSERT_EQUAL(0, res.getPositionChangeCounter());
+}
+
+int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_fast_motor_movement_no_loss);
   RUN_TEST(test_direction_change_during_isr);
+  RUN_TEST(test_limit_drift_recovery);
   return UNITY_END();
 }

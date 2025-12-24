@@ -3,13 +3,12 @@
 **CyclingPowerGarmin** is an ESP32 firmware project designed to convert a standard exercise bike
 (with 16 steps of spinning resistance) into a smart trainer compatible with Garmin watches and
 other BLE Cycling Power Profile (CPP) receivers.
-It is not an FTMS project as Garmin still does not support the standard, so it is exposed as a regular cycling power
+It is not an FTMS project as Garmin currently does not support the standard, so it is exposed as a regular cycling power
 meter.
 The system estimates **Power (Watts)** via a software model that correlates **Cadence (RPM)** and **Resistance Level** (
 derived from a mechanical position sensor) using a lookup table.
-Using polling currently as interrupts did not work great with resistance with current implementation.
-This firmware is working with a trainer that has power estimation by "stealing" pulses coming from built-in sensors to
-built in cycling computer.
+The system is configured to use **Polling** by default (via `USE_INTERRUPTS 0` in `config.h`) as interrupts showed instability with the current hardware setup. However, the codebase supports both logic modes, decoupled via the `BikeComputer` and `ResistanceLevel` classes.
+This firmware is working with a trainer that has built-in sensors (Hall/Reed switches) typically wired to a basic cycling computer.
 
 ## Architecture & Design
 
@@ -23,11 +22,14 @@ logic using Dependency Injection.
 * **`Cadence`**: Calculates RPM based on pulses from a magnetic reed switch or Hall sensor. Includes logic for
   debouncing, idle timeouts, and coasting decay.
 * **`ResistanceLevel`**: Determines the current resistance setting (1-16) by tracking the movement of the resistance
-  cable/magnet. It uses a state machine monitoring 4 pins (Forward, Backward, Position Pulse, Limit Switch).
-* **`Power`**: A pure logic module containing a Lookup Table (LUT). It accepts `Level` and `Cadence` to return estimated
-  `Watts`, interpolating values where necessary.
-* **`BLECyclingPowerService`**: Manages the Bluetooth Low Energy stack (using **NimBLE**). It broadcasts the *Cycling
+  cable/magnet. It uses a state machine monitoring 4 pins (Forward, Backward, Position Pulse, Limit Switch). Supports both polling and interrupt-driven execution.
+* **`Power`**: A pure logic module containing a 2D Lookup Table (LUT). It accepts `Level` and `Cadence` to return estimated
+  `Watts`, performing bilinear interpolation for precise values.
+* **`BLECyclingPowerService`**: Manages the Bluetooth Low Energy stack. It broadcasts the *Cycling
   Power Service* (0x1818) and notifies connected devices of power and crank revolution data.
+    *   Uses **`BlePacketGenerator`** to format valid BLE packets.
+* **`IBleStackAdapter`**: An abstraction over the BLE stack to facilitate testing.
+    *   **`NimBleStackAdapter`**: Concrete implementation wrapping the **NimBLE** library for ESP32.
 * **`ISystemWrapper`**: An abstract interface for system calls (`millis`, `digitalRead`, `digitalWrite`, `deepSleep`).
     * **`ArduinoSystemWrapper`**: The concrete implementation used on the ESP32.
     * **`MockSystemWrapper`**: A mock implementation used during Native Unit Testing to simulate time and pin states.
@@ -38,7 +40,7 @@ The project targets an **ESP32** (specifically configured for `lolin32_lite` in 
 
 ### Pinout (Default)
 
-Defined in `src/CyclingPowerGarmin.cpp` and `src/BikeComputer.h`:
+Defined in `src/config.h` and `src/BikeComputer.h`:
 
 | Component            | Pin (GPIO) | Description                                                                          |
 |:---------------------|:-----------|:-------------------------------------------------------------------------------------|
@@ -52,7 +54,7 @@ Defined in `src/CyclingPowerGarmin.cpp` and `src/BikeComputer.h`:
 
 ## Development & Testing
 
-This project uses **PlatformIO**. It can be istalled like this:
+This project uses **PlatformIO**. It can be installed like this:
 
 ```bash
 curl -fsSL -o /tmp/get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py
