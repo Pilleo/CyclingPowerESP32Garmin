@@ -31,6 +31,23 @@ void test_rejects_malformed_and_unsupported_requests() {
   TEST_ASSERT_EQUAL_UINT32(10, controlPoint.apply(10));
 }
 
+void test_rejected_requests_preserve_an_established_wheel_offset() {
+  CpsControlPoint controlPoint;
+  const uint8_t accepted[] = {0x01, 0x64, 0x00, 0x00, 0x00};
+  const uint8_t malformed[] = {0x01, 0x01};
+  const uint8_t unsupported[] = {0x03};
+
+  controlPoint.write(accepted, sizeof(accepted), 30);
+  const CpsControlPointResponse malformedResponse =
+      controlPoint.write(malformed, sizeof(malformed), 33);
+  const CpsControlPointResponse unsupportedResponse =
+      controlPoint.write(unsupported, sizeof(unsupported), 33);
+
+  TEST_ASSERT_EQUAL_UINT8(0x03, malformedResponse.bytes[2]);
+  TEST_ASSERT_EQUAL_UINT8(0x02, unsupportedResponse.bytes[2]);
+  TEST_ASSERT_EQUAL_UINT32(103, controlPoint.apply(33));
+}
+
 void test_clamps_adjusted_wheel_count_to_uint32_range() {
   CpsControlPoint controlPoint;
   const uint8_t zeroRequest[] = {0x01, 0x00, 0x00, 0x00, 0x00};
@@ -47,6 +64,7 @@ int main() {
   UNITY_BEGIN();
   RUN_TEST(test_set_cumulative_value_offsets_only_wheel_revolutions);
   RUN_TEST(test_rejects_malformed_and_unsupported_requests);
+  RUN_TEST(test_rejected_requests_preserve_an_established_wheel_offset);
   RUN_TEST(test_clamps_adjusted_wheel_count_to_uint32_range);
   return UNITY_END();
 }
