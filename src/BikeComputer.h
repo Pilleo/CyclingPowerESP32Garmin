@@ -68,6 +68,30 @@ public:
 #endif
         const CadenceReading cadence = _cadence.reading();
 
+#ifndef NATIVE_TEST
+        ResistanceRunDiagnostics resistanceRun{};
+        if (_resistance.takeCompletedRunDiagnostics(resistanceRun)) {
+            const char direction =
+                resistanceRun.direction == ResistanceDirection::Forward ? 'F' : 'B';
+            Serial.print("RESISTANCE RUN: dir=");
+            Serial.print(direction);
+            Serial.print(" start=");
+            Serial.print(resistanceRun.startCounter);
+            Serial.print(" end=");
+            Serial.print(resistanceRun.endCounter);
+            Serial.print(" edges=");
+            Serial.print(resistanceRun.observedEdges);
+            Serial.print(" invalid=");
+            Serial.print(resistanceRun.invalidDirectionSamples);
+            Serial.print(" stopped=");
+            Serial.print(resistanceRun.stoppedSamplesDuringRun);
+            Serial.print(" maxPollGapMs=");
+            Serial.print(resistanceRun.maxPollGapMs);
+            Serial.print(" minEdgeMs=");
+            Serial.println(resistanceRun.minimumAcceptedEdgeIntervalMs);
+        }
+#endif
+
         _led.update(cadence.rpm);
 
         const unsigned long ms = _sys.millis();

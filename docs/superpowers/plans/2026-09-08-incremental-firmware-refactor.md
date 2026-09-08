@@ -28,3 +28,6 @@ Before resistance or BLE structural work, upload this revision and test startup,
 30/60/90 RPM cadence and power, stop/restart behavior, sleep/wake, CPS/CSC
 counters, and Garmin reconnect behavior. Garmin Fenix 7 firmware 26.09 may
 continue to show speed as `--`.
+
+Milestone 1 cadence behavior passed on the trainer. Resistance diagnostics are
+now staged behind Hardware Gate A before changing any counter behavior.

@@ -17,6 +17,27 @@ struct ResistanceLevelPins {
   const uint8_t forwards;
 };
 
+enum class ResistanceDirection : uint8_t {
+  Stopped,
+  Forward,
+  Backward,
+  Invalid
+};
+
+auto classifyResistanceDirection(bool forwardActive,
+                                 bool backwardActive) -> ResistanceDirection;
+
+struct ResistanceRunDiagnostics {
+  ResistanceDirection direction = ResistanceDirection::Stopped;
+  uint16_t startCounter = 0;
+  uint16_t endCounter = 0;
+  uint32_t observedEdges = 0;
+  uint32_t invalidDirectionSamples = 0;
+  uint32_t stoppedSamplesDuringRun = 0;
+  uint32_t maxPollGapMs = 0;
+  uint32_t minimumAcceptedEdgeIntervalMs = 0;
+};
+
 class ResistanceLevel {
 public:
   explicit ResistanceLevel(const ResistanceLevelPins &pins,
@@ -34,6 +55,9 @@ public:
    * Reads all resistance pins and triggers events if edges are detected.
    */
   void poll();
+
+  auto takeCompletedRunDiagnostics(ResistanceRunDiagnostics &diagnostics)
+      -> bool;
 
   /**
    * @brief Triggered when the position sensor detects an edge (pulse).
@@ -84,12 +108,31 @@ private:
   volatile bool _positionInterruptFlag = false;
   volatile uint32_t _lastPositionInterruptTime = 0;
 
+  bool _runActive = false;
+  bool _completedRunAvailable = false;
+  bool _stopping = false;
+  bool _hasPollTime = false;
+  bool _hasObservedEdgeTime = false;
+  uint32_t _lastPollTimeMs = 0;
+  uint32_t _stopStartedTimeMs = 0;
+  uint32_t _pendingStoppedSamples = 0;
+  uint32_t _lastObservedEdgeTimeMs = 0;
+  ResistanceRunDiagnostics _activeRun{};
+  ResistanceRunDiagnostics _completedRun{};
+
+  void beginDiagnosticRun(ResistanceDirection direction);
+  void updateRunDiagnostics(ResistanceDirection direction, uint32_t nowMs,
+                            uint32_t pollGapMs);
+  void recordObservedEdge(uint32_t nowMs);
+  void completeDiagnosticRun();
+
   void ISR_ATTR updateLevelFromCounter();
 
   static constexpr uint8_t MIN_LEVEL = 1;
   static constexpr unsigned long DEBOUNCE_TIME_MS = 8;
   static constexpr unsigned long MOVEMENT_TIMEOUT_MS = 50;
   static constexpr unsigned long PAUSE_TIMEOUT_MS = 1700;
+  static constexpr unsigned long RUN_STOP_CONFIRMATION_MS = 100;
   // NEW: Static pointer
   static ResistanceLevel *_instance;
 };

@@ -4,6 +4,17 @@
 
 ResistanceLevel *ResistanceLevel::_instance = nullptr;
 
+auto classifyResistanceDirection(const bool forwardActive,
+                                 const bool backwardActive)
+    -> ResistanceDirection {
+  if (forwardActive == backwardActive) {
+    return forwardActive ? ResistanceDirection::Invalid
+                         : ResistanceDirection::Stopped;
+  }
+  return forwardActive ? ResistanceDirection::Forward
+                       : ResistanceDirection::Backward;
+}
+
 namespace {
 struct LevelRange {
   uint16_t minCount;
@@ -38,6 +49,94 @@ ResistanceLevel::ResistanceLevel(const ResistanceLevelPins &pins,
 
 void ResistanceLevel::begin() {
   oldPositionState = (sys.digitalRead(positionPin) != 0);
+  _lastPollTimeMs = sys.millis();
+  _hasPollTime = true;
+}
+
+auto ResistanceLevel::takeCompletedRunDiagnostics(
+    ResistanceRunDiagnostics &diagnostics) -> bool {
+  if (!_completedRunAvailable) {
+    return false;
+  }
+  diagnostics = _completedRun;
+  _completedRunAvailable = false;
+  return true;
+}
+
+void ResistanceLevel::beginDiagnosticRun(
+    const ResistanceDirection direction) {
+  _activeRun = {};
+  _activeRun.direction = direction;
+  _activeRun.startCounter = positionChangeCounter;
+  _runActive = true;
+  _stopping = false;
+  _pendingStoppedSamples = 0;
+  _hasObservedEdgeTime = false;
+}
+
+void ResistanceLevel::completeDiagnosticRun() {
+  _activeRun.endCounter = positionChangeCounter;
+  _completedRun = _activeRun;
+  _completedRunAvailable = true;
+  _runActive = false;
+  _stopping = false;
+  _pendingStoppedSamples = 0;
+  _hasObservedEdgeTime = false;
+}
+
+void ResistanceLevel::updateRunDiagnostics(
+    const ResistanceDirection direction, const uint32_t nowMs,
+    const uint32_t pollGapMs) {
+  const bool moving = direction == ResistanceDirection::Forward ||
+                      direction == ResistanceDirection::Backward;
+  if (!_runActive && moving) {
+    beginDiagnosticRun(direction);
+  }
+  if (!_runActive) {
+    return;
+  }
+
+  if (direction == ResistanceDirection::Invalid) {
+    ++_activeRun.invalidDirectionSamples;
+    return;
+  }
+  if (direction == ResistanceDirection::Stopped) {
+    if (!_stopping) {
+      _stopping = true;
+      _stopStartedTimeMs = nowMs;
+      _pendingStoppedSamples = 1;
+    } else if (nowMs - _stopStartedTimeMs >= RUN_STOP_CONFIRMATION_MS) {
+      completeDiagnosticRun();
+    } else {
+      ++_pendingStoppedSamples;
+    }
+    return;
+  }
+
+  if (_stopping) {
+    _activeRun.stoppedSamplesDuringRun += _pendingStoppedSamples;
+    _stopping = false;
+    _pendingStoppedSamples = 0;
+  }
+  if (pollGapMs > _activeRun.maxPollGapMs) {
+    _activeRun.maxPollGapMs = pollGapMs;
+  }
+}
+
+void ResistanceLevel::recordObservedEdge(const uint32_t nowMs) {
+  if (!_runActive) {
+    return;
+  }
+  ++_activeRun.observedEdges;
+  if (_hasObservedEdgeTime) {
+    const uint32_t interval = nowMs - _lastObservedEdgeTimeMs;
+    if (_activeRun.minimumAcceptedEdgeIntervalMs == 0 ||
+        interval < _activeRun.minimumAcceptedEdgeIntervalMs) {
+      _activeRun.minimumAcceptedEdgeIntervalMs = interval;
+    }
+  }
+  _lastObservedEdgeTimeMs = nowMs;
+  _hasObservedEdgeTime = true;
 }
 
 void ResistanceLevel::enableInterrupt() { _instance = this; }
@@ -175,9 +274,17 @@ void ResistanceLevel::poll() {
   const bool pinPosition = (sys.digitalRead(positionPin) != 0);
   const bool limitActive = (sys.digitalRead(limitPin) != 0);
 
+  const uint32_t now = sys.millis();
+  const uint32_t pollGapMs = _hasPollTime ? now - _lastPollTimeMs : 0;
+  _lastPollTimeMs = now;
+  _hasPollTime = true;
+
   // Derived Direction States
   const bool isMovingBack = pinBackRaw && !pinForwardRaw;
   const bool isMovingForward = pinForwardRaw && !pinBackRaw;
+  const ResistanceDirection direction =
+      classifyResistanceDirection(pinForwardRaw, pinBackRaw);
+  updateRunDiagnostics(direction, now, pollGapMs);
 
   // 2. Handle Limit Reset
   if (!isMovingForward && limitActive) {
@@ -187,6 +294,10 @@ void ResistanceLevel::poll() {
   // 3. Detect Edge
   if (pinPosition != oldPositionState) {
     oldPositionState = pinPosition;
-    onPositionPulse(sys.millis(), isMovingForward, isMovingBack);
+    const bool acceptedEdge = now - lastPulseTimestamp > DEBOUNCE_TIME_MS;
+    onPositionPulse(now, isMovingForward, isMovingBack);
+    if (acceptedEdge) {
+      recordObservedEdge(now);
+    }
   }
 }
