@@ -13,7 +13,8 @@
 
 // This struct represents the Cycling Power Measurement characteristic.
 // It is packed to ensure there is no padding between members, matching the BLE specification.
-struct CyclingPowerMeasurement {
+struct CyclingPowerMeasurement
+{
     uint16_t flags;
     int16_t instantaneousPower;
     // The following fields are optional and their presence is indicated by the flags.
@@ -23,7 +24,8 @@ struct CyclingPowerMeasurement {
     uint16_t lastCrankEventTime; // Unit is 1/1024 second
 } __attribute__((packed));
 
-class BlePacketGenerator {
+class BlePacketGenerator
+{
 public:
     // The size of the buffer required to hold the generated packet.
     static constexpr size_t MAX_PACKET_SIZE = sizeof(CyclingPowerMeasurement);
@@ -45,12 +47,12 @@ public:
     static size_t generatePacket(const uint16_t powerWatts,
                                  const uint32_t totalCrankRevs,
                                  const uint16_t lastCrankTime,
-                                 uint8_t *buffer) {
+                                 uint8_t *buffer)
+    {
         CyclingPowerMeasurement packet{};
         packet.flags = CPM_FLAG_WHEEL_REV_DATA_PRESENT | CPM_FLAG_CRANK_REV_DATA_PRESENT;
-        packet.instantaneousPower = powerWatts;
+        packet.instantaneousPower = static_cast<int16_t>(powerWatts);
 
-        // Simulate wheel data from crank data, as some applications require it.
         packet.cumulativeWheelRevs = totalCrankRevs * WHEEL_TO_CRANK_REVOLUTION_RATIO;
         packet.lastWheelEventTime =
             static_cast<uint16_t>(lastCrankTime * 2U);
@@ -58,10 +60,7 @@ public:
         packet.cumulativeCrankRevs = static_cast<uint16_t>(totalCrankRevs);
         packet.lastCrankEventTime = lastCrankTime;
 
-        // Copy the packet to the buffer. This is safe because the struct is packed and the buffer is large enough.
-        // The ESP32 is little-endian, which matches the BLE specification, so no byte swapping is needed.
         memcpy(buffer, &packet, MAX_PACKET_SIZE);
-
         return MAX_PACKET_SIZE;
     }
 };
