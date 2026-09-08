@@ -7,4 +7,3 @@
 - Preserve fractional cadence in calculated power.
 - Model cadence and resistance state with typed, testable polling logic.
 - Add packet, rollover, resistance, Control Point, BLE protocol, and integration regression tests.
-
