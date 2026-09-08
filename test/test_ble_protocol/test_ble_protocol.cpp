@@ -113,6 +113,10 @@ void test_csc_service_is_discoverable_and_configured() {
     TEST_ASSERT_EQUAL_UINT32(IBleStackAdapter::PROP_READ, location->properties);
 }
 
+void test_advertises_speed_and_cadence_sensor_appearance() {
+    TEST_ASSERT_EQUAL_HEX16(0x0485, mockStack->appearance);
+}
+
 void test_update_notifies_power_and_csc_measurements() {
     mockStack->simulateConnect();
     service->updateData(250, 100, 5000);
@@ -128,6 +132,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_power_measurement_notification);
     RUN_TEST(test_power_feature_reports_single_sensor_with_wheel_and_crank_data);
     RUN_TEST(test_csc_service_is_discoverable_and_configured);
+    RUN_TEST(test_advertises_speed_and_cadence_sensor_appearance);
     RUN_TEST(test_update_notifies_power_and_csc_measurements);
     return UNITY_END();
 }

@@ -18,6 +18,7 @@ public:
 
     Callbacks* callbacks = nullptr;
     bool advertisingStarted = false;
+    uint16_t appearance = 0;
     std::map<CharHandle, CharacteristicData> characteristics;
     std::vector<std::string> createdServices;
     std::vector<std::string> startedServices;
@@ -71,7 +72,9 @@ public:
     void addServiceToAdvertising(const char* uuid) override {
         advertisedServices.push_back(uuid);
     }
-    void setAppearance(uint16_t appearance) override {}
+    void setAppearance(uint16_t value) override {
+        appearance = value;
+    }
 
     // Test Helpers
     void simulateConnect() {

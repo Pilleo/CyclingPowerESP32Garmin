@@ -21,7 +21,7 @@ static constexpr const char *CSC_MEASUREMENT_CHAR_UUID_STR = "2A5B";
 static constexpr const char *CSC_FEATURE_CHAR_UUID_STR = "2A5C";
 
 // Appearance
-static constexpr uint16_t APPEARANCE_CYCLING_POWER = 0x0484;
+static constexpr uint16_t APPEARANCE_CYCLING_SPEED_AND_CADENCE = 0x0485;
 
 // Battery level (dummy value for now)
 static constexpr uint8_t DUMMY_BATTERY_LEVEL = 79;
@@ -113,7 +113,7 @@ void BLECyclingPowerService::setupAdvertising() const {
   _bleStack.addServiceToAdvertising(CYCLING_POWER_SERVICE_UUID_STR);
   _bleStack.addServiceToAdvertising(CYCLING_SPEED_CADENCE_SERVICE_UUID_STR);
   _bleStack.addServiceToAdvertising(BATTERY_SERVICE_UUID_STR);
-  _bleStack.setAppearance(APPEARANCE_CYCLING_POWER);
+  _bleStack.setAppearance(APPEARANCE_CYCLING_SPEED_AND_CADENCE);
 }
 
 void BLECyclingPowerService::updateData(uint16_t power,
