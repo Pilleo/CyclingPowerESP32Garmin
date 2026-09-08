@@ -7,7 +7,7 @@ It is not an FTMS project as Garmin currently does not support the standard, so 
 meter.
 The system estimates **Power (Watts)** via a software model that correlates **Cadence (RPM)** and **Resistance Level** (
 derived from a mechanical position sensor) using a lookup table.
-The system is configured to use **Polling** by default (via `USE_INTERRUPTS 0` in `config.h`) as interrupts showed instability with the current hardware setup. However, the codebase supports both logic modes, decoupled via the `BikeComputer` and `ResistanceLevel` classes.
+The system uses **polling** in production (`USE_INTERRUPTS 0` in `config.h`). Interrupt code remains experimental and is not hardware-validated for this trainer.
 This firmware is working with a trainer that has built-in sensors (Hall/Reed switches) typically wired to a basic cycling computer.
 
 ## Architecture & Design
@@ -22,13 +22,13 @@ logic using Dependency Injection.
 * **`Cadence`**: Calculates RPM based on pulses from a magnetic reed switch or Hall sensor. Includes logic for
   debouncing, idle timeouts, and coasting decay.
 * **`ResistanceLevel`**: Determines the current resistance setting (1-16) by tracking the movement of the resistance
-  cable/magnet. It uses a state machine monitoring 4 pins (Forward, Backward, Position Pulse, Limit Switch). Supports both polling and interrupt-driven execution.
+  cable/magnet. It uses a state machine monitoring 4 pins (Forward, Backward, Position Pulse, Limit Switch) through the validated polling path.
 * **`Power`**: A pure logic module containing a 2D Lookup Table (LUT). It accepts `Level` and `Cadence` to return estimated
   `Watts`, performing bilinear interpolation for precise values.
 * **`BLECyclingPowerService`**: Manages the Bluetooth Low Energy stack. It exposes both Cycling
   Power (`0x1818`) and Cycling Speed and Cadence (`0x1816`), plus Battery Service (`0x180F`).
-  CPS and CSC are generated from the same revolution counter and event timestamp. CSC includes
-  the mandatory SC Control Point (`0x2A55`).
+  CPS and CSC are generated from the same revolution counter and event timestamp. CPS exposes
+  Cycling Power Control Point (`0x2A66`) and CSC exposes the mandatory SC Control Point (`0x2A55`).
     * Uses **`BlePacketGenerator`** and **`CscPacketGenerator`** to format valid BLE packets.
 * **`IBleStackAdapter`**: An abstraction over the BLE stack to facilitate testing.
     *   **`NimBleStackAdapter`**: Concrete implementation wrapping the **NimBLE** library for ESP32.
@@ -64,11 +64,16 @@ speed is `cadence × 3 × 2.1 × 60 / 1000`, giving approximately 11.3, 22.7, an
 30, 60, and 90 RPM. CPS Feature is `0x0010000C` (wheel and crank revolution data supported;
 not for use in a distributed system).
 
-Hardware testing with a Fenix 7 on firmware 26.09 found that Garmin subscribes to CPS and displays
-power and cadence but ignores the CPS wheel data. A CSC-only diagnostic on the same ESP32 displayed
-speed and cadence correctly. A combined CPS+CSC peripheral was classified as a power meter and its
-CSC role was not offered separately. The firmware nevertheless keeps both conforming services so it
-is ready for receivers—and future Garmin firmware—that support both profiles from one BLE device.
+Garmin Fenix 7 firmware 26.09 displayed power and cadence but speed `--` when CPS Wheel Revolution
+Data was present without CPS Control Point (`0x2A66`). A controlled A/B test showed that adding `2A66`
+restored live speed, saved speed, distance, and stop/run behavior. The result was reproduced after a
+fresh pairing and then verified on the real trainer.
+
+When CPS Wheel Revolution Data is supported, the CPS Set Cumulative Value procedure is conditionally
+required. This firmware supports that procedure through `0x2A66` while preserving the crank counters
+and event timestamps. The controlled test isolates that characteristic as the compatibility difference;
+Garmin's internal validation behavior is undocumented. CSC remains available for receivers that use it,
+although Garmin may still present the combined peripheral as a single power meter.
 
 This project uses **PlatformIO**. It can be installed like this:
 
@@ -84,12 +89,15 @@ To run tests with coverage lcov also needs to be installed:
 sudo apt install lcov -y
 ```
 
-### 1. Build & Upload (Firmware)
+### 1. Build, Upload, and Pair
 
 To compile, test, flash the code to the ESP32:
 
 ```bash
-# Build (always run after tests)
+# Native tests
+pio test -e native
+
+# Build
 pio run -e lolin32_lite
 
 # Upload
@@ -97,6 +105,28 @@ pio run -t upload -e lolin32_lite
 
 # Monitor Serial Output
 pio run -t monitor -e lolin32_lite
+```
+
+After an upgrade that changes the BLE GATT layout, remove and re-add `CX6` on Garmin so it discovers
+the new characteristics. Configure a 2100 mm wheel circumference when that matches your setup. Perform
+trainer movement tests with USB disconnected: USB connection was observed to interfere with the trainer
+electronics during resistance adjustment.
+
+### Virtual speed
+
+The virtual speed is derived from cadence and the configured wheel-to-crank ratio:
+
+```text
+speed_kmh = cadence_rpm × 3 × circumference_m × 0.06
+```
+
+At 60 RPM and 2100 mm circumference, this is 22.68 km/h. It is intended to provide stable recording
+and auto-pause behavior. Matching a trainer's proprietary speed display exactly requires separate
+calibration measurements.
+
+### Coverage report
+
+```bash
 
 # Test with coverage
 # 1. Clean previous builds to ensure fresh coverage data

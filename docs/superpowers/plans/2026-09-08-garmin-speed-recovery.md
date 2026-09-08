@@ -41,6 +41,7 @@ validation behavior remains undocumented.
 
 ## Hardware milestone
 
-After uploading production firmware, remove and re-add the sensor, then verify live and saved power,
-cadence, speed, distance, auto-pause, resistance response, sleep/wake, and reconnection at 30, 60,
-and 90 RPM with USB disconnected.
+The production firmware was uploaded to the real trainer and confirmed working. Garmin reports live
+power, cadence, and speed; speed is also saved in activities. The remaining trainer checks are normal
+ongoing use: resistance response, auto-pause, sleep/wake, and reconnection at 30, 60, and 90 RPM with
+USB disconnected.
