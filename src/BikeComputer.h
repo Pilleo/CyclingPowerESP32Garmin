@@ -66,7 +66,7 @@ public:
         _cadence.poll();
         _resistance.poll();
 #endif
-        const int16_t cad = _cadence.cadence();
+        const float cad = _cadence.cadence();
 
         _led.update(cad);
 
@@ -84,12 +84,12 @@ public:
             lastLevel = l;
         }
 
-        currentPower = Power::calculate({l, static_cast<float>(cad)});
+        currentPower = Power::calculate({l, cad});
 
         const unsigned long periodSinceLastTransaction = ms - lastDataSentTimestamp;
 
         if (periodSinceLastTransaction >= TIME_PERIOD_FOR_SENDING_DATA) {
-            if (cad >= 0) {
+            if (cad >= 0.0F) {
                 _bleService.updateData(currentPower, _cadence.totalRevs(),
                                        _cadence.getGattLastCrankRevolutionTimestamp());
                 lastDataSentTimestamp = ms;

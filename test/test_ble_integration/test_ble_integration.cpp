@@ -1,6 +1,7 @@
 #include "../../src/BikeComputer.h"
 #include "../../src/Cadence.h"
 #include "../../src/ResistanceLevel.h"
+#include "../../src/Power.h"
 #include "../../src/config.h"
 #include "../common/MockBleService.h"
 #include "../common/MockSystemWrapper.h"
@@ -200,11 +201,26 @@ void test_ble_rate_limiting() {
   TEST_ASSERT_LESS_THAN(10, mockBle.callCount);
 }
 
+void test_fractional_cadence_reaches_power_calculation() {
+  mockSys.advanceTime(660);
+  realCadence->onPulse(mockSys.millis());
+  computer->update();
+
+  const float cadence = realCadence->cadence();
+  const uint16_t expected = Power::calculate({1, cadence});
+  const uint16_t truncated =
+      Power::calculate({1, static_cast<float>(static_cast<int16_t>(cadence))});
+
+  TEST_ASSERT_NOT_EQUAL(truncated, expected);
+  TEST_ASSERT_EQUAL_UINT16(expected, mockBle.lastPowerSent);
+}
+
 int main(int argc, char **argv) {
   UNITY_BEGIN();
   RUN_TEST(test_happy_path_data_pipeline);
   RUN_TEST(test_full_data_flow);
   RUN_TEST(test_system_sleeps_after_timeout);
   RUN_TEST(test_ble_rate_limiting);
+  RUN_TEST(test_fractional_cadence_reaches_power_calculation);
   return UNITY_END();
 }

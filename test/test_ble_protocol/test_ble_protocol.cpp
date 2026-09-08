@@ -3,6 +3,7 @@
 #include "MockBleStackAdapter.h"
 #include "../../src/Cadence.h" // Needed for updateData signature, though we pass primitives now?
 #include <algorithm>
+#include <cstring>
 // Actually updateData takes primitives now.
 
 MockBleStackAdapter* mockStack;
@@ -99,6 +100,7 @@ void test_csc_service_is_discoverable_and_configured() {
     const auto* measurement = mockStack->findCharacteristic("1816", "2A5B");
     const auto* feature = mockStack->findCharacteristic("1816", "2A5C");
     const auto* location = mockStack->findCharacteristic("1816", "2A5D");
+    const auto* controlPoint = mockStack->findCharacteristic("1816", "2A55");
 
     TEST_ASSERT_NOT_NULL(measurement);
     TEST_ASSERT_EQUAL_UINT32(IBleStackAdapter::PROP_NOTIFY,
@@ -111,20 +113,12 @@ void test_csc_service_is_discoverable_and_configured() {
                                  sizeof(expectedFeature));
     TEST_ASSERT_NOT_NULL(location);
     TEST_ASSERT_EQUAL_UINT32(IBleStackAdapter::PROP_READ, location->properties);
+    TEST_ASSERT_NOT_NULL(controlPoint);
+    TEST_ASSERT_EQUAL_UINT32(0x22, controlPoint->properties);
 }
 
 void test_advertises_speed_and_cadence_sensor_appearance() {
     TEST_ASSERT_EQUAL_HEX16(0x0485, mockStack->appearance);
-}
-
-void test_uses_distinct_diagnostic_ble_identity() {
-    const uint8_t expectedAddress[] = {0xC6, 0x58, 0x21,
-                                       0x47, 0xA3, 0xD2};
-
-    TEST_ASSERT_TRUE(mockStack->randomStaticAddressConfigured);
-    TEST_ASSERT_EQUAL_HEX8_ARRAY(expectedAddress,
-                                 mockStack->randomStaticAddress.data(),
-                                 sizeof(expectedAddress));
 }
 
 void test_update_notifies_power_and_csc_measurements() {
@@ -135,6 +129,22 @@ void test_update_notifies_power_and_csc_measurements() {
     TEST_ASSERT_TRUE(mockStack->wasNotified("2A5B"));
 }
 
+void test_csc_control_point_sets_cumulative_wheel_value() {
+    mockStack->simulateConnect();
+    service->updateData(250, 10, 1024);
+    const uint8_t request[] = {0x01, 0x64, 0x00, 0x00, 0x00};
+    mockStack->simulateWrite("2A55", request, sizeof(request));
+    const uint8_t expectedResponse[] = {0x10, 0x01, 0x01};
+    const auto response = mockStack->getValue("2A55");
+    TEST_ASSERT_TRUE(mockStack->wasIndicated("2A55"));
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(expectedResponse, response.data(), 3);
+    service->updateData(250, 11, 2048);
+    const auto measurement = mockStack->getValue("2A5B");
+    uint32_t wheelRevs = 0;
+    std::memcpy(&wheelRevs, measurement.data() + 1, sizeof(wheelRevs));
+    TEST_ASSERT_EQUAL_UINT32(103, wheelRevs);
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_re_advertising_on_disconnect);
@@ -143,7 +153,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_power_feature_reports_single_sensor_with_wheel_and_crank_data);
     RUN_TEST(test_csc_service_is_discoverable_and_configured);
     RUN_TEST(test_advertises_speed_and_cadence_sensor_appearance);
-    RUN_TEST(test_uses_distinct_diagnostic_ble_identity);
     RUN_TEST(test_update_notifies_power_and_csc_measurements);
+    RUN_TEST(test_csc_control_point_sets_cumulative_wheel_value);
     return UNITY_END();
 }

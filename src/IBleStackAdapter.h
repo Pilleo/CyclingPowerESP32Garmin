@@ -12,15 +12,20 @@ public:
         virtual void onDisconnect() = 0;
     };
 
+    struct CharacteristicCallbacks {
+        virtual ~CharacteristicCallbacks() = default;
+        virtual void onWrite(void *handle, const uint8_t *data, size_t length) = 0;
+    };
+
     // Properties abstraction
     static constexpr uint32_t PROP_READ = 0x01;
+    static constexpr uint32_t PROP_WRITE = 0x02;
     static constexpr uint32_t PROP_NOTIFY = 0x10; // Matching typical BLE standard values roughly, or just mapping
+    static constexpr uint32_t PROP_INDICATE = 0x20;
 
     virtual ~IBleStackAdapter() = default;
 
     virtual void init(const char *deviceName) = 0;
-
-    virtual auto setRandomStaticAddress(const uint8_t *address) -> bool = 0;
 
     virtual void startAdvertising() = 0;
 
@@ -40,6 +45,9 @@ public:
 
     virtual void setCharacteristicValue(CharHandle handle, uint8_t value) = 0; // Overload for byte
     virtual void notify(CharHandle handle) = 0;
+    virtual void indicate(CharHandle handle) = 0;
+    virtual void setCharacteristicCallbacks(
+        CharHandle handle, CharacteristicCallbacks *callbacks) = 0;
 
     // For advertising setup
     virtual void addServiceToAdvertising(const char *uuid) = 0;

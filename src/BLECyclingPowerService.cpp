@@ -8,6 +8,7 @@
 #include "ble_constants.h"
 #include "config.h"
 #include <array>
+#include <cstring>
 
 // Service and Characteristic UUIDs
 static constexpr const char *BATTERY_SERVICE_UUID_STR = "180F";
@@ -19,21 +20,26 @@ static constexpr const char *SENSOR_LOCATION_CHAR_UUID_STR = "2A5D";
 static constexpr const char *CYCLING_SPEED_CADENCE_SERVICE_UUID_STR = "1816";
 static constexpr const char *CSC_MEASUREMENT_CHAR_UUID_STR = "2A5B";
 static constexpr const char *CSC_FEATURE_CHAR_UUID_STR = "2A5C";
+static constexpr const char *SC_CONTROL_POINT_CHAR_UUID_STR = "2A55";
 
 // Appearance
 static constexpr uint16_t APPEARANCE_CYCLING_SPEED_AND_CADENCE = 0x0485;
 
 // Battery level (dummy value for now)
 static constexpr uint8_t DUMMY_BATTERY_LEVEL = 79;
+static constexpr uint8_t SC_RESPONSE_CODE = 0x10;
+static constexpr uint8_t SC_SET_CUMULATIVE_VALUE = 0x01;
+static constexpr uint8_t SC_RESPONSE_SUCCESS = 0x01;
+static constexpr uint8_t SC_RESPONSE_OPCODE_NOT_SUPPORTED = 0x02;
+static constexpr uint8_t SC_RESPONSE_INVALID_PARAMETER = 0x03;
 
 BLECyclingPowerService::BLECyclingPowerService(
     IBleStackAdapter &bleStack) noexcept
     : _bleStack(bleStack) {}
 
-void BLECyclingPowerService::start() {
+void BLECyclingPowerService::start()
+{
   _bleStack.init(BLE_DEVICE_NAME);
-  (void)_bleStack.setRandomStaticAddress(
-      BLE_DIAGNOSTIC_RANDOM_STATIC_ADDRESS);
   _bleStack.setCallbacks(this);
 
   setupPowerService();
@@ -69,6 +75,12 @@ void BLECyclingPowerService::setupCscService()
   _bleStack.setCharacteristicValue(_cscSensorLocationCharacteristic,
                                    &cscLocation, sizeof(cscLocation));
 
+  _cscControlPointCharacteristic = _bleStack.createCharacteristic(
+      CYCLING_SPEED_CADENCE_SERVICE_UUID_STR,
+      SC_CONTROL_POINT_CHAR_UUID_STR,
+      IBleStackAdapter::PROP_WRITE | IBleStackAdapter::PROP_INDICATE);
+  _bleStack.setCharacteristicCallbacks(_cscControlPointCharacteristic, this);
+
   _bleStack.startService(CYCLING_SPEED_CADENCE_SERVICE_UUID_STR);
 }
 
@@ -103,7 +115,8 @@ void BLECyclingPowerService::setupPowerService()
   _bleStack.startService(CYCLING_POWER_SERVICE_UUID_STR);
 }
 
-void BLECyclingPowerService::setupBatteryService() {
+void BLECyclingPowerService::setupBatteryService()
+{
   _bleStack.createService(BATTERY_SERVICE_UUID_STR);
   _batteryLevelCharacteristic = _bleStack.createCharacteristic(
       BATTERY_SERVICE_UUID_STR, BATTERY_LEVEL_CHAR_UUID_STR,
@@ -111,7 +124,8 @@ void BLECyclingPowerService::setupBatteryService() {
   _bleStack.startService(BATTERY_SERVICE_UUID_STR);
 }
 
-void BLECyclingPowerService::setupAdvertising() const {
+void BLECyclingPowerService::setupAdvertising() const
+{
   _bleStack.addServiceToAdvertising(CYCLING_POWER_SERVICE_UUID_STR);
   _bleStack.addServiceToAdvertising(CYCLING_SPEED_CADENCE_SERVICE_UUID_STR);
   _bleStack.addServiceToAdvertising(BATTERY_SERVICE_UUID_STR);
@@ -120,22 +134,33 @@ void BLECyclingPowerService::setupAdvertising() const {
 
 void BLECyclingPowerService::updateData(uint16_t power,
                                         uint32_t totalRevolutions,
-                                        uint16_t crankEventTime) {
-  if (!_deviceConnected) {
+                                        uint16_t crankEventTime)
+{
+  if (!_deviceConnected)
+  {
     return;
   }
 
-  std::array<uint8_t, BlePacketGenerator::MAX_PACKET_SIZE> payload{};
-  const size_t packetSize = BlePacketGenerator::generatePacket(
+  std::array<uint8_t, BlePacketGenerator::MAX_PACKET_SIZE> payload;
+
+  // Generate and notify for the Cycling Power Service (Power + Cadence)
+  size_t cppPacketSize = BlePacketGenerator::generatePacket(
       power, totalRevolutions, crankEventTime, payload.data());
 
   _bleStack.setCharacteristicValue(_powerMeasurementCharacteristic,
-                                   payload.data(), packetSize);
+                                   payload.data(), cppPacketSize);
   _bleStack.notify(_powerMeasurementCharacteristic);
 
   std::array<uint8_t, CscPacketGenerator::MAX_PACKET_SIZE> cscPayload{};
-  const size_t cscPacketSize = CscPacketGenerator::generatePacket(
-      totalRevolutions, crankEventTime, cscPayload.data());
+  _lastBaseCscWheelRevolutions =
+      totalRevolutions * WHEEL_REVOLUTIONS_PER_CRANK_REVOLUTION;
+  const uint32_t cscWheelRevolutions = static_cast<uint32_t>(
+      static_cast<int64_t>(_lastBaseCscWheelRevolutions) +
+      _cscWheelRevolutionOffset);
+  const size_t cscPacketSize = CscPacketGenerator::generatePacketFromCounts(
+      cscWheelRevolutions, crankEventTime,
+      static_cast<uint16_t>(totalRevolutions), crankEventTime,
+      cscPayload.data());
   _bleStack.setCharacteristicValue(_cscMeasurementCharacteristic,
                                    cscPayload.data(), cscPacketSize);
   _bleStack.notify(_cscMeasurementCharacteristic);
@@ -147,16 +172,48 @@ void BLECyclingPowerService::updateData(uint16_t power,
 
 auto BLECyclingPowerService::isConnected() -> bool { return _deviceConnected; }
 
-void BLECyclingPowerService::onConnect() {
+void BLECyclingPowerService::onConnect()
+{
   _deviceConnected = true;
   // Restart advertising to allow other devices to connect (if supported by the
   // stack)
   _bleStack.startAdvertising();
 }
 
-void BLECyclingPowerService::onDisconnect() {
+void BLECyclingPowerService::onDisconnect()
+{
   _deviceConnected = false;
   // The stack should handle cleanup, but we restart advertising to be
   // discoverable again.
   _bleStack.startAdvertising();
+}
+
+void BLECyclingPowerService::onWrite(void *handle, const uint8_t *data,
+                                     size_t length)
+{
+  if (handle != _cscControlPointCharacteristic || data == nullptr || length == 0)
+  {
+    return;
+  }
+  const uint8_t opcode = data[0];
+  uint8_t result = SC_RESPONSE_OPCODE_NOT_SUPPORTED;
+  if (opcode == SC_SET_CUMULATIVE_VALUE)
+  {
+    if (length == 5)
+    {
+      uint32_t requested;
+      std::memcpy(&requested, data + 1, sizeof(requested));
+      _cscWheelRevolutionOffset = static_cast<int64_t>(requested) -
+                                  static_cast<int64_t>(_lastBaseCscWheelRevolutions);
+      result = SC_RESPONSE_SUCCESS;
+    }
+    else
+    {
+      result = SC_RESPONSE_INVALID_PARAMETER;
+    }
+  }
+  const uint8_t response[] = {SC_RESPONSE_CODE, opcode, result};
+  _bleStack.setCharacteristicValue(_cscControlPointCharacteristic, response,
+                                   sizeof(response));
+  _bleStack.indicate(_cscControlPointCharacteristic);
 }

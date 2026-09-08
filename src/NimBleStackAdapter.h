@@ -28,6 +28,18 @@ class NimBleStackAdapter : public IBleStackAdapter {
         }
     };
 
+    class CharacteristicCallbackAdapter : public NimBLECharacteristicCallbacks {
+        CharacteristicCallbacks &_callbacks;
+    public:
+        explicit CharacteristicCallbackAdapter(CharacteristicCallbacks &callbacks)
+            : _callbacks(callbacks) {}
+        void onWrite(NimBLECharacteristic *characteristic,
+                     NimBLEConnInfo & /*connInfo*/) override {
+            const NimBLEAttValue &value = characteristic->getValue();
+            _callbacks.onWrite(characteristic, value.data(), value.size());
+        }
+    };
+
     BLEServer *_pServer = nullptr;
     Callbacks *_callbacks = nullptr;
     ServerCallbacks *_serverCallbacks = nullptr;
@@ -35,23 +47,24 @@ class NimBleStackAdapter : public IBleStackAdapter {
     // Map to store services and characteristics
     // Simple mapping: UUID string -> BLEService*
     std::map<std::string, BLEService *> _services;
+    std::map<CharHandle, CharacteristicCallbackAdapter *> _characteristicCallbacks;
 
     // We need to map our opaque handle back to BLECharacteristic*
     // Since we return void*, we can just cast BLECharacteristic* to void* and back.
 
 public:
     NimBleStackAdapter() = default;
+    ~NimBleStackAdapter() override {
+        for (const auto &entry : _characteristicCallbacks) {
+            delete entry.second;
+        }
+    }
 
     void init(const char *deviceName) override {
         NimBLEDevice::init(deviceName);
         _pServer = BLEDevice::createServer();
         _serverCallbacks = new ServerCallbacks(*this);
         _pServer->setCallbacks(_serverCallbacks);
-    }
-
-    auto setRandomStaticAddress(const uint8_t *address) -> bool override {
-        return NimBLEDevice::setOwnAddr(address) &&
-               NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_RANDOM);
     }
 
     void startAdvertising() override {
@@ -68,9 +81,10 @@ public:
     }
 
     void startService(const char *uuid) override {
-        if (_services.find(uuid) != _services.end()) {
-            _services[uuid]->start();
-        }
+        // NimBLE-Arduino 2.5 starts services with the server. The former
+        // NimBLEService::start() call is deprecated and intentionally has no
+        // effect, so the platform adapter has nothing to do here.
+        (void) uuid;
     }
 
     auto createCharacteristic(const char *serviceUuid, const char *charUuid,
@@ -83,7 +97,9 @@ public:
         // NimBLE properties are bitmasks.
         uint32_t nimProps = 0;
         if ((properties & PROP_READ) != 0U) { nimProps |= NIMBLE_PROPERTY::READ; }
+        if ((properties & PROP_WRITE) != 0U) { nimProps |= NIMBLE_PROPERTY::WRITE; }
         if ((properties & PROP_NOTIFY) != 0U) { nimProps |= NIMBLE_PROPERTY::NOTIFY; }
+        if ((properties & PROP_INDICATE) != 0U) { nimProps |= NIMBLE_PROPERTY::INDICATE; }
 
         return _services[serviceUuid]->createCharacteristic(NimBLEUUID(charUuid), nimProps);
     }
@@ -101,6 +117,19 @@ public:
     void notify(CharHandle handle) override {
         if (handle == nullptr) { return; }
         (void) static_cast<BLECharacteristic *>(handle)->notify();
+    }
+
+    void indicate(CharHandle handle) override {
+        if (handle == nullptr) { return; }
+        (void) static_cast<BLECharacteristic *>(handle)->indicate();
+    }
+
+    void setCharacteristicCallbacks(
+        CharHandle handle, CharacteristicCallbacks *callbacks) override {
+        if (handle == nullptr || callbacks == nullptr) { return; }
+        auto *adapter = new CharacteristicCallbackAdapter(*callbacks);
+        _characteristicCallbacks[handle] = adapter;
+        static_cast<BLECharacteristic *>(handle)->setCallbacks(adapter);
     }
 
     void addServiceToAdvertising(const char *uuid) override {

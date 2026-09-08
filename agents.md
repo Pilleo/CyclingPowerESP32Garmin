@@ -25,9 +25,11 @@ logic using Dependency Injection.
   cable/magnet. It uses a state machine monitoring 4 pins (Forward, Backward, Position Pulse, Limit Switch). Supports both polling and interrupt-driven execution.
 * **`Power`**: A pure logic module containing a 2D Lookup Table (LUT). It accepts `Level` and `Cadence` to return estimated
   `Watts`, performing bilinear interpolation for precise values.
-* **`BLECyclingPowerService`**: Manages the Bluetooth Low Energy stack. It broadcasts the *Cycling
-  Power Service* (0x1818) and notifies connected devices of power and crank revolution data.
-    *   Uses **`BlePacketGenerator`** to format valid BLE packets.
+* **`BLECyclingPowerService`**: Manages the Bluetooth Low Energy stack. It exposes both Cycling
+  Power (`0x1818`) and Cycling Speed and Cadence (`0x1816`), plus Battery Service (`0x180F`).
+  CPS and CSC are generated from the same revolution counter and event timestamp. CSC includes
+  the mandatory SC Control Point (`0x2A55`).
+    * Uses **`BlePacketGenerator`** and **`CscPacketGenerator`** to format valid BLE packets.
 * **`IBleStackAdapter`**: An abstraction over the BLE stack to facilitate testing.
     *   **`NimBleStackAdapter`**: Concrete implementation wrapping the **NimBLE** library for ESP32.
 * **`ISystemWrapper`**: An abstract interface for system calls (`millis`, `digitalRead`, `digitalWrite`, `deepSleep`).
@@ -53,6 +55,20 @@ Defined in `src/config.h` and `src/BikeComputer.h`:
 | **Wakeup**           | **15**     | Deep sleep wakeup source (tied to Cadence).                                          |
 
 ## Development & Testing
+
+### BLE compatibility
+
+The NimBLE dependency remains `h2zero/NimBLE-Arduino@^2.5.0`; the verified resolution is 2.5.1.
+The configured wheel-to-crank ratio is 3. With a receiver configured for a 2.1 m circumference,
+speed is `cadence × 3 × 2.1 × 60 / 1000`, giving approximately 11.3, 22.7, and 34.0 km/h at
+30, 60, and 90 RPM. CPS Feature is `0x0010000C` (wheel and crank revolution data supported;
+not for use in a distributed system).
+
+Hardware testing with a Fenix 7 on firmware 26.09 found that Garmin subscribes to CPS and displays
+power and cadence but ignores the CPS wheel data. A CSC-only diagnostic on the same ESP32 displayed
+speed and cadence correctly. A combined CPS+CSC peripheral was classified as a power meter and its
+CSC role was not offered separately. The firmware nevertheless keeps both conforming services so it
+is ready for receivers—and future Garmin firmware—that support both profiles from one BLE device.
 
 This project uses **PlatformIO**. It can be installed like this:
 

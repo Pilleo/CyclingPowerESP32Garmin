@@ -11,7 +11,9 @@
 #include "IBleService.h"
 #include "IBleStackAdapter.h"
 
-class BLECyclingPowerService : public IBleService, public IBleStackAdapter::Callbacks {
+class BLECyclingPowerService : public IBleService, public IBleStackAdapter::Callbacks,
+                               public IBleStackAdapter::CharacteristicCallbacks
+{
 private:
     IBleStackAdapter &_bleStack;
 
@@ -22,9 +24,12 @@ private:
     IBleStackAdapter::CharHandle _cscMeasurementCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _cscFeatureCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _cscSensorLocationCharacteristic = nullptr;
+    IBleStackAdapter::CharHandle _cscControlPointCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _batteryLevelCharacteristic = nullptr;
 
     bool _deviceConnected = false;
+    uint32_t _lastBaseCscWheelRevolutions = 0;
+    int64_t _cscWheelRevolutionOffset = 0;
 
     // Private helper methods for setup
     void setupPowerService();
@@ -56,6 +61,7 @@ public:
     void onConnect() override;
 
     void onDisconnect() override;
+    void onWrite(void *handle, const uint8_t *data, size_t length) override;
 };
 
-#endif //BLEPOWERSERVICE_H
+#endif // BLEPOWERSERVICE_H

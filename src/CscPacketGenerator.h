@@ -21,14 +21,23 @@ public:
 
   static size_t generatePacket(uint32_t totalCrankRevs,
                                uint16_t lastCrankTime, uint8_t *buffer) {
+    return generatePacketFromCounts(
+        totalCrankRevs * WHEEL_REVOLUTIONS_PER_CRANK_REVOLUTION,
+        lastCrankTime, static_cast<uint16_t>(totalCrankRevs), lastCrankTime,
+        buffer);
+  }
+
+  static size_t generatePacketFromCounts(
+      uint32_t cumulativeWheelRevs, uint16_t lastWheelEventTime,
+      uint16_t cumulativeCrankRevs, uint16_t lastCrankEventTime,
+      uint8_t *buffer) {
     CscMeasurement packet{};
     packet.flags =
         CSCM_WHEEL_REV_DATA_PRESENT | CSCM_CRANK_REV_DATA_PRESENT;
-    packet.cumulativeWheelRevs =
-        totalCrankRevs * WHEEL_REVOLUTIONS_PER_CRANK_REVOLUTION;
-    packet.lastWheelEventTime = lastCrankTime;
-    packet.cumulativeCrankRevs = static_cast<uint16_t>(totalCrankRevs);
-    packet.lastCrankEventTime = lastCrankTime;
+    packet.cumulativeWheelRevs = cumulativeWheelRevs;
+    packet.lastWheelEventTime = lastWheelEventTime;
+    packet.cumulativeCrankRevs = cumulativeCrankRevs;
+    packet.lastCrankEventTime = lastCrankEventTime;
 
     std::memcpy(buffer, &packet, MAX_PACKET_SIZE);
     return MAX_PACKET_SIZE;

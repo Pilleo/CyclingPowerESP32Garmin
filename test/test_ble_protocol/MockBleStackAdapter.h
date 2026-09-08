@@ -2,8 +2,6 @@
 #define MOCK_BLE_STACK_ADAPTER_H
 
 #include "../../src/IBleStackAdapter.h"
-#include <array>
-#include <algorithm>
 #include <string>
 #include <map>
 #include <vector>
@@ -16,13 +14,13 @@ public:
         uint32_t properties;
         std::vector<uint8_t> value;
         bool notified;
+        bool indicated = false;
+        CharacteristicCallbacks* callbacks = nullptr;
     };
 
     Callbacks* callbacks = nullptr;
     bool advertisingStarted = false;
     uint16_t appearance = 0;
-    bool randomStaticAddressConfigured = false;
-    std::array<uint8_t, 6> randomStaticAddress{};
     std::map<CharHandle, CharacteristicData> characteristics;
     std::vector<std::string> createdServices;
     std::vector<std::string> startedServices;
@@ -32,13 +30,6 @@ public:
     uintptr_t nextHandle = 1;
 
     void init(const char* deviceName) override {}
-
-    bool setRandomStaticAddress(const uint8_t* address) override {
-        std::copy_n(address, randomStaticAddress.size(),
-                    randomStaticAddress.begin());
-        randomStaticAddressConfigured = true;
-        return true;
-    }
 
     void startAdvertising() override {
         advertisingStarted = true;
@@ -58,7 +49,7 @@ public:
 
     CharHandle createCharacteristic(const char* serviceUuid, const char* charUuid, uint32_t properties) override {
         CharHandle handle = reinterpret_cast<CharHandle>(nextHandle++);
-        characteristics[handle] = {serviceUuid, charUuid, properties, {}, false};
+        characteristics[handle] = {serviceUuid, charUuid, properties, {}, false, false, nullptr};
         return handle;
     }
 
@@ -79,6 +70,13 @@ public:
             characteristics[handle].notified = true;
         }
     }
+    void indicate(CharHandle handle) override {
+        if (characteristics.count(handle)) characteristics[handle].indicated = true;
+    }
+    void setCharacteristicCallbacks(CharHandle handle,
+                                    CharacteristicCallbacks* cb) override {
+        if (characteristics.count(handle)) characteristics[handle].callbacks = cb;
+    }
 
     void addServiceToAdvertising(const char* uuid) override {
         advertisedServices.push_back(uuid);
@@ -94,6 +92,18 @@ public:
 
     void simulateDisconnect() {
         if (callbacks) callbacks->onDisconnect();
+    }
+    void simulateWrite(const char* uuid, const uint8_t* data, size_t length) {
+        for (auto& pair : characteristics) {
+            if (pair.second.charUuid == uuid && pair.second.callbacks) {
+                pair.second.callbacks->onWrite(pair.first, data, length);
+            }
+        }
+    }
+    bool wasIndicated(const char* uuid) const {
+        for (const auto& pair : characteristics)
+            if (pair.second.charUuid == uuid && pair.second.indicated) return true;
+        return false;
     }
 
     bool wasNotified(const char* charUuid) {

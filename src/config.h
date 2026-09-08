@@ -20,10 +20,7 @@ constexpr ResistanceLevelPins RESISTANCE_PINS = {
 constexpr uint32_t SERIAL_BAUD_RATE = 115200;
 
 // --- BLE ---
-// The time period in milliseconds for sending data over BLE.
 constexpr char BLE_DEVICE_NAME[] = "CX6";
-constexpr uint8_t BLE_DIAGNOSTIC_RANDOM_STATIC_ADDRESS[] = {
-    0xC6, 0x58, 0x21, 0x47, 0xA3, 0xD2};
 constexpr int TIME_PERIOD_FOR_SENDING_DATA = 510;
 constexpr uint8_t WHEEL_REVOLUTIONS_PER_CRANK_REVOLUTION = 3;
 
