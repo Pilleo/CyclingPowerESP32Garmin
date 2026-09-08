@@ -2,6 +2,7 @@
 #include "../../src/BLECyclingPowerService.h"
 #include "MockBleStackAdapter.h"
 #include "../../src/Cadence.h" // Needed for updateData signature, though we pass primitives now?
+#include <algorithm>
 // Actually updateData takes primitives now.
 
 MockBleStackAdapter* mockStack;
@@ -85,11 +86,48 @@ void test_power_feature_reports_single_sensor_with_wheel_and_crank_data() {
     TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, value.data(), sizeof(expected));
 }
 
+void test_csc_service_is_discoverable_and_configured() {
+    TEST_ASSERT_NOT_EQUAL(
+        mockStack->createdServices.end(),
+        std::find(mockStack->createdServices.begin(),
+                  mockStack->createdServices.end(), "1816"));
+    TEST_ASSERT_NOT_EQUAL(
+        mockStack->advertisedServices.end(),
+        std::find(mockStack->advertisedServices.begin(),
+                  mockStack->advertisedServices.end(), "1816"));
+
+    const auto* measurement = mockStack->findCharacteristic("1816", "2A5B");
+    const auto* feature = mockStack->findCharacteristic("1816", "2A5C");
+    const auto* location = mockStack->findCharacteristic("1816", "2A5D");
+
+    TEST_ASSERT_NOT_NULL(measurement);
+    TEST_ASSERT_EQUAL_UINT32(IBleStackAdapter::PROP_NOTIFY,
+                             measurement->properties);
+    TEST_ASSERT_NOT_NULL(feature);
+    TEST_ASSERT_EQUAL_UINT32(IBleStackAdapter::PROP_READ, feature->properties);
+    const uint8_t expectedFeature[] = {0x03, 0x00};
+    TEST_ASSERT_EQUAL(sizeof(expectedFeature), feature->value.size());
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(expectedFeature, feature->value.data(),
+                                 sizeof(expectedFeature));
+    TEST_ASSERT_NOT_NULL(location);
+    TEST_ASSERT_EQUAL_UINT32(IBleStackAdapter::PROP_READ, location->properties);
+}
+
+void test_update_notifies_power_and_csc_measurements() {
+    mockStack->simulateConnect();
+    service->updateData(250, 100, 5000);
+
+    TEST_ASSERT_TRUE(mockStack->wasNotified("2A63"));
+    TEST_ASSERT_TRUE(mockStack->wasNotified("2A5B"));
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_re_advertising_on_disconnect);
     RUN_TEST(test_battery_level_update);
     RUN_TEST(test_power_measurement_notification);
     RUN_TEST(test_power_feature_reports_single_sensor_with_wheel_and_crank_data);
+    RUN_TEST(test_csc_service_is_discoverable_and_configured);
+    RUN_TEST(test_update_notifies_power_and_csc_measurements);
     return UNITY_END();
 }

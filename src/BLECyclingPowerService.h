@@ -19,13 +19,16 @@ private:
     IBleStackAdapter::CharHandle _powerMeasurementCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _featureCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _sensorLocationCharacteristic = nullptr;
+    IBleStackAdapter::CharHandle _cscMeasurementCharacteristic = nullptr;
+    IBleStackAdapter::CharHandle _cscFeatureCharacteristic = nullptr;
+    IBleStackAdapter::CharHandle _cscSensorLocationCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _batteryLevelCharacteristic = nullptr;
 
     bool _deviceConnected = false;
 
     // Private helper methods for setup
     void setupPowerService();
-
+    void setupCscService();
     void setupBatteryService();
 
     void setupAdvertising() const;

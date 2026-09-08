@@ -21,6 +21,7 @@ public:
     std::map<CharHandle, CharacteristicData> characteristics;
     std::vector<std::string> createdServices;
     std::vector<std::string> startedServices;
+    std::vector<std::string> advertisedServices;
 
     // Helper to generate handles
     uintptr_t nextHandle = 1;
@@ -67,7 +68,9 @@ public:
         }
     }
 
-    void addServiceToAdvertising(const char* uuid) override {}
+    void addServiceToAdvertising(const char* uuid) override {
+        advertisedServices.push_back(uuid);
+    }
     void setAppearance(uint16_t appearance) override {}
 
     // Test Helpers
@@ -95,6 +98,17 @@ public:
             }
         }
         return {};
+    }
+
+    const CharacteristicData* findCharacteristic(const char* serviceUuid,
+                                                  const char* charUuid) const {
+        for (const auto& pair : characteristics) {
+            if (pair.second.serviceUuid == serviceUuid &&
+                pair.second.charUuid == charUuid) {
+                return &pair.second;
+            }
+        }
+        return nullptr;
     }
 
     void clearNotifications() {

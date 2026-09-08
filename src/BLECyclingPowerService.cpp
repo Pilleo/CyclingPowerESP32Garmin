@@ -4,6 +4,7 @@
 
 #include "BLECyclingPowerService.h"
 #include "BlePacketGenerator.h"
+#include "CscPacketGenerator.h"
 #include "ble_constants.h"
 #include "config.h"
 #include <array>
@@ -15,6 +16,9 @@ static constexpr const char *CYCLING_POWER_SERVICE_UUID_STR = "1818";
 static constexpr const char *CYCLING_POWER_MEASUREMENT_CHAR_UUID_STR = "2A63";
 static constexpr const char *CYCLING_POWER_FEATURE_CHAR_UUID_STR = "2A65";
 static constexpr const char *SENSOR_LOCATION_CHAR_UUID_STR = "2A5D";
+static constexpr const char *CYCLING_SPEED_CADENCE_SERVICE_UUID_STR = "1816";
+static constexpr const char *CSC_MEASUREMENT_CHAR_UUID_STR = "2A5B";
+static constexpr const char *CSC_FEATURE_CHAR_UUID_STR = "2A5C";
 
 // Appearance
 static constexpr uint16_t APPEARANCE_CYCLING_POWER = 0x0484;
@@ -31,13 +35,43 @@ void BLECyclingPowerService::start() {
   _bleStack.setCallbacks(this);
 
   setupPowerService();
+  setupCscService();
   setupBatteryService();
   setupAdvertising();
 
   _bleStack.startAdvertising();
 }
 
-void BLECyclingPowerService::setupPowerService() {
+void BLECyclingPowerService::setupCscService()
+{
+  _bleStack.createService(CYCLING_SPEED_CADENCE_SERVICE_UUID_STR);
+
+  _cscMeasurementCharacteristic = _bleStack.createCharacteristic(
+      CYCLING_SPEED_CADENCE_SERVICE_UUID_STR, CSC_MEASUREMENT_CHAR_UUID_STR,
+      IBleStackAdapter::PROP_NOTIFY);
+  _cscFeatureCharacteristic = _bleStack.createCharacteristic(
+      CYCLING_SPEED_CADENCE_SERVICE_UUID_STR, CSC_FEATURE_CHAR_UUID_STR,
+      IBleStackAdapter::PROP_READ);
+  constexpr uint16_t cscFeatureValue =
+      CSCF_WHEEL_REVOLUTION_DATA_SUPPORTED |
+      CSCF_CRANK_REVOLUTION_DATA_SUPPORTED;
+  _bleStack.setCharacteristicValue(
+      _cscFeatureCharacteristic,
+      reinterpret_cast<const uint8_t *>(&cscFeatureValue),
+      sizeof(cscFeatureValue));
+
+  _cscSensorLocationCharacteristic = _bleStack.createCharacteristic(
+      CYCLING_SPEED_CADENCE_SERVICE_UUID_STR, SENSOR_LOCATION_CHAR_UUID_STR,
+      IBleStackAdapter::PROP_READ);
+  constexpr uint8_t cscLocation = SENSOR_LOCATION_CHAIN_RING;
+  _bleStack.setCharacteristicValue(_cscSensorLocationCharacteristic,
+                                   &cscLocation, sizeof(cscLocation));
+
+  _bleStack.startService(CYCLING_SPEED_CADENCE_SERVICE_UUID_STR);
+}
+
+void BLECyclingPowerService::setupPowerService()
+{
   _bleStack.createService(CYCLING_POWER_SERVICE_UUID_STR);
 
   _powerMeasurementCharacteristic = _bleStack.createCharacteristic(
@@ -77,6 +111,7 @@ void BLECyclingPowerService::setupBatteryService() {
 
 void BLECyclingPowerService::setupAdvertising() const {
   _bleStack.addServiceToAdvertising(CYCLING_POWER_SERVICE_UUID_STR);
+  _bleStack.addServiceToAdvertising(CYCLING_SPEED_CADENCE_SERVICE_UUID_STR);
   _bleStack.addServiceToAdvertising(BATTERY_SERVICE_UUID_STR);
   _bleStack.setAppearance(APPEARANCE_CYCLING_POWER);
 }
@@ -95,6 +130,13 @@ void BLECyclingPowerService::updateData(uint16_t power,
   _bleStack.setCharacteristicValue(_powerMeasurementCharacteristic,
                                    payload.data(), packetSize);
   _bleStack.notify(_powerMeasurementCharacteristic);
+
+  std::array<uint8_t, CscPacketGenerator::MAX_PACKET_SIZE> cscPayload{};
+  const size_t cscPacketSize = CscPacketGenerator::generatePacket(
+      totalRevolutions, crankEventTime, cscPayload.data());
+  _bleStack.setCharacteristicValue(_cscMeasurementCharacteristic,
+                                   cscPayload.data(), cscPacketSize);
+  _bleStack.notify(_cscMeasurementCharacteristic);
 
   _bleStack.setCharacteristicValue(_batteryLevelCharacteristic,
                                    DUMMY_BATTERY_LEVEL);
