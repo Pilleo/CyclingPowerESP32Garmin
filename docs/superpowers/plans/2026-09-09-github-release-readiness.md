@@ -23,7 +23,7 @@
 
 ---
 
-### Task 1: Strengthen the Garmin regression contract — [0%]
+### Task 1: Strengthen the Garmin regression contract — [100%]
 
 **Files:**
 - Modify: `test/test_cps_control_point/test_cps_control_point.cpp`
@@ -35,11 +35,11 @@
 - Consumes: `CpsControlPoint::write(...)`, `CpsControlPoint::apply(...)`, and `BLECyclingPowerService::updateData(const CyclingTelemetry&)`.
 - Produces: executable regression evidence for the characteristic whose absence caused Garmin speed to display `--`.
 
-- [ ] **Step 1: Add a unit test proving rejected requests preserve an established offset**
+- [x] **Step 1: Add a unit test proving rejected requests preserve an established offset**
 
 Create a test that first accepts `{0x01, 0x64, 0x00, 0x00, 0x00}` at base wheel count `30`, then submits malformed opcode `0x01` and unsupported opcode `0x03`. Assert both failures leave `apply(33) == 103`.
 
-- [ ] **Step 2: Temporarily remove the production CPS Control Point wiring and verify the protocol test fails**
+- [x] **Step 2: Temporarily remove the production CPS Control Point wiring and verify the protocol test fails**
 
 Use a reversible local patch that removes creation of characteristic `2A66`, then run:
 
@@ -49,7 +49,7 @@ pio test -e native -f test_ble_protocol
 
 Expected: `test_cps_control_point_sets_cumulative_wheel_value` fails because characteristic `2A66` is absent. Restore the production code immediately afterward; do not commit the temporary mutation.
 
-- [ ] **Step 3: Run focused Control Point tests**
+- [x] **Step 3: Run focused Control Point tests**
 
 ```bash
 pio test -e native -f test_cps_control_point -f test_ble_protocol
@@ -57,14 +57,14 @@ pio test -e native -f test_cps_control_point -f test_ble_protocol
 
 Expected: all Control Point and BLE protocol tests pass, including exact properties `WRITE | INDICATE`, response `20 01 01`, and subsequent CPS wheel count `103`.
 
-- [ ] **Step 4: Commit the regression-test improvement**
+- [x] **Step 4: Commit the regression-test improvement**
 
 ```bash
 git add test/test_cps_control_point/test_cps_control_point.cpp
 git commit -m "test: preserve Garmin speed compatibility contract"
 ```
 
-### Task 2: Correct the public documentation — [0%]
+### Task 2: Correct the public documentation — [100%]
 
 **Files:**
 - Modify: `README.md`
@@ -75,7 +75,7 @@ git commit -m "test: preserve Garmin speed compatibility contract"
 - Consumes: hardware evidence from Fenix 7 firmware 26.09 and commit `c61fbf1`.
 - Produces: accurate build, pairing, compatibility, and troubleshooting instructions for GitHub users.
 
-- [ ] **Step 1: Replace the obsolete Garmin compatibility section**
+- [x] **Step 1: Replace the obsolete Garmin compatibility section**
 
 Document these exact findings:
 
@@ -84,15 +84,15 @@ Document these exact findings:
 - The fix was reproduced by fresh pairing and verified on the real trainer with Fenix 7 firmware 26.09.
 - CSC remains exposed for compatible receivers, but Garmin may classify the combined device as one power meter.
 
-- [ ] **Step 2: Document the Bluetooth requirement precisely**
+- [x] **Step 2: Document the Bluetooth requirement precisely**
 
 Explain that when CPS Wheel Revolution Data is supported, the CPS Set Cumulative Value procedure is conditionally required. Avoid claiming knowledge of Garmin’s undocumented internal validation logic; state only that controlled A/B testing isolated `2A66` as the compatibility difference.
 
-- [ ] **Step 3: Correct production-mode claims**
+- [x] **Step 3: Correct production-mode claims**
 
 State that polling is the only hardware-validated production mode. Interrupt code remains experimental, is disabled with `USE_INTERRUPTS == 0`, and should not be enabled without separate trainer validation.
 
-- [ ] **Step 4: Add a concise installation and pairing checklist**
+- [x] **Step 4: Add a concise installation and pairing checklist**
 
 Include:
 
@@ -104,18 +104,18 @@ pio run -e lolin32_lite -t upload
 
 Then instruct users to remove and re-add `CX6` after a firmware upgrade that changes the GATT layout, configure a 2100 mm circumference if appropriate, and test trainer movement with USB disconnected.
 
-- [ ] **Step 5: Document the virtual-speed formula and limitations**
+- [x] **Step 5: Document the virtual-speed formula and limitations**
 
 Record `speed_kmh = cadence_rpm × 3 × circumference_m × 0.06`, giving approximately 22.68 km/h at 60 RPM and 2100 mm. Clarify that this is virtual speed intended primarily for recording and auto-pause; exact agreement with the trainer requires later calibration.
 
-- [ ] **Step 6: Commit documentation**
+- [x] **Step 6: Commit documentation**
 
 ```bash
 git add README.md agents.md docs/superpowers/plans/2026-09-08-garmin-speed-recovery.md
 git commit -m "docs: publish Garmin speed recovery setup"
 ```
 
-### Task 3: Add continuous integration — [0%]
+### Task 3: Add continuous integration — [100%]
 
 **Files:**
 - Create: `.github/workflows/platformio.yml`
@@ -124,7 +124,7 @@ git commit -m "docs: publish Garmin speed recovery setup"
 - Consumes: PlatformIO environments `native` and `lolin32_lite` from `platformio.ini`.
 - Produces: required automated native-test and firmware-build checks for pushes and pull requests.
 
-- [ ] **Step 1: Add the GitHub Actions workflow**
+- [x] **Step 1: Add the GitHub Actions workflow**
 
 Create a workflow named `PlatformIO` triggered by `push` and `pull_request`. Use `actions/checkout@v4`, `actions/setup-python@v5` with Python 3.12, cache `~/.platformio`, install PlatformIO with `python -m pip install --upgrade platformio`, then run:
 
@@ -134,11 +134,11 @@ pio run -e lolin32_lite
 pio check -e lolin32_lite --skip-packages
 ```
 
-- [ ] **Step 2: Validate workflow syntax locally**
+- [x] **Step 2: Validate workflow syntax locally**
 
 Parse `.github/workflows/platformio.yml` with the available YAML parser. Assert the top-level keys include `name`, `on`, and `jobs`, and that the job contains all three PlatformIO commands.
 
-- [ ] **Step 3: Re-run the same commands locally**
+- [x] **Step 3: Re-run the same commands locally**
 
 ```bash
 pio test -e native
@@ -148,14 +148,14 @@ pio check -e lolin32_lite --skip-packages
 
 Expected: 93 or more native tests pass, firmware builds without warnings, and static analysis reports zero high/medium findings.
 
-- [ ] **Step 4: Commit CI**
+- [x] **Step 4: Commit CI**
 
 ```bash
 git add .github/workflows/platformio.yml
 git commit -m "ci: verify native tests and ESP32 firmware"
 ```
 
-### Task 4: Prepare the release record — [0%]
+### Task 4: Prepare the release record — [100%]
 
 **Files:**
 - Create: `CHANGELOG.md`
@@ -165,7 +165,7 @@ git commit -m "ci: verify native tests and ESP32 firmware"
 - Consumes: verified commits and hardware results.
 - Produces: a user-facing release summary and a clean source tree.
 
-- [ ] **Step 1: Add an Unreleased changelog entry**
+- [x] **Step 1: Add an Unreleased changelog entry**
 
 Under `## [Unreleased]`, record:
 
@@ -175,11 +175,11 @@ Under `## [Unreleased]`, record:
 - Added typed cadence and resistance state models while retaining polling.
 - Added packet, rollover, resistance, Control Point, and integration tests.
 
-- [ ] **Step 2: Ignore local worktree storage**
+- [x] **Step 2: Ignore local worktree storage**
 
 Add `/.worktrees/` to `.gitignore` so future isolated worktrees do not appear as untracked repository content. Do not remove or modify any existing external diagnostic worktrees in `/tmp`.
 
-- [ ] **Step 3: Audit tracked content for publication hazards**
+- [x] **Step 3: Audit tracked content for publication hazards**
 
 Run:
 
@@ -192,14 +192,14 @@ git status --short
 
 Expected: no credentials or generated build artifacts are tracked; only intentional release-preparation files are modified before commit.
 
-- [ ] **Step 4: Commit release metadata**
+- [x] **Step 4: Commit release metadata**
 
 ```bash
 git add CHANGELOG.md .gitignore
 git commit -m "chore: prepare public firmware release"
 ```
 
-### Task 5: Final release gate — [0%]
+### Task 5: Final release gate — [100%]
 
 **Files:** No source changes expected.
 
@@ -207,7 +207,7 @@ git commit -m "chore: prepare public firmware release"
 - Consumes: Tasks 1–4 and the completed trainer hardware acceptance.
 - Produces: evidence that local `master` is ready to push.
 
-- [ ] **Step 1: Verify dependency resolution**
+- [x] **Step 1: Verify dependency resolution**
 
 ```bash
 pio pkg list -e lolin32_lite
@@ -215,7 +215,7 @@ pio pkg list -e lolin32_lite
 
 Expected: `NimBLE-Arduino @ 2.5.1` resolved from `h2zero/NimBLE-Arduino@^2.5.0`.
 
-- [ ] **Step 2: Run complete software verification**
+- [x] **Step 2: Run complete software verification**
 
 ```bash
 pio test -e native
@@ -226,11 +226,11 @@ git diff --check
 
 Expected: all native tests pass, the ESP32 release build succeeds without warnings, and static analysis reports zero high/medium findings.
 
-- [ ] **Step 3: Confirm immutable behavior-sensitive files**
+- [x] **Step 3: Confirm immutable behavior-sensitive files**
 
 Compare `src/Power.cpp`, `src/config.h`, packet generators, and resistance thresholds against commit `c61fbf1`. Expected changes are documentation or tests only; no power-table, pin, ratio, timing, packet, or resistance changes are permitted.
 
-- [ ] **Step 4: Confirm repository state and history**
+- [x] **Step 4: Confirm repository state and history**
 
 ```bash
 git status --short --branch
@@ -239,7 +239,7 @@ git log --oneline --decorate origin/master..master
 
 Expected: clean `master`, containing the hardware-verified fix and release-preparation commits, with no mock firmware tracked.
 
-- [ ] **Step 5: Stop for publication authorization**
+- [x] **Step 5: Stop for publication authorization**
 
 Report the exact commits, verification totals, and hardware evidence. Do not run `git push`, create a tag, or create a GitHub release until the user explicitly requests publication.
 
