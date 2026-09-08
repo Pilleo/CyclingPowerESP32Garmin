@@ -2,6 +2,7 @@
 #define RESISTANCE_LEVEL_H
 
 #include "SystemWrapper.h"
+#include "ResistanceModel.h"
 #include <cstdint>
 #ifdef ESP32
 #include "esp_attr.h"
@@ -15,13 +16,6 @@ struct ResistanceLevelPins {
   const uint8_t limit;
   const uint8_t position;
   const uint8_t forwards;
-};
-
-enum class ResistanceDirection : uint8_t {
-  Stopped,
-  Forward,
-  Backward,
-  Invalid
 };
 
 auto classifyResistanceDirection(bool forwardActive,
@@ -107,6 +101,7 @@ private:
   volatile bool _limitInterruptFlag = false;
   volatile bool _positionInterruptFlag = false;
   volatile uint32_t _lastPositionInterruptTime = 0;
+  ResistanceModelState _model{};
 
   bool _runActive = false;
   bool _completedRunAvailable = false;
@@ -126,12 +121,8 @@ private:
   void recordObservedEdge(uint32_t nowMs);
   void completeDiagnosticRun();
 
-  void ISR_ATTR updateLevelFromCounter();
-
   static constexpr uint8_t MIN_LEVEL = 1;
   static constexpr unsigned long DEBOUNCE_TIME_MS = 8;
-  static constexpr unsigned long MOVEMENT_TIMEOUT_MS = 50;
-  static constexpr unsigned long PAUSE_TIMEOUT_MS = 1700;
   static constexpr unsigned long RUN_STOP_CONFIRMATION_MS = 100;
   // NEW: Static pointer
   static ResistanceLevel *_instance;

@@ -5,7 +5,7 @@
 - [x] 5% Checkpoint tested power and packet changes; create isolated worktree.
 - [x] 20% Add typed cadence and telemetry contracts with characterization tests.
 - [x] 45% Replace cadence sentinel behavior with a pure, timestamped polling model.
-- [ ] 65% Refactor resistance into a pure reducer after Milestone 1 hardware approval.
+- [x] 65% Refactor resistance into a pure reducer after Milestone 1 hardware approval.
 - [ ] 85% Separate BLE profiles after Milestone 2 hardware approval.
 - [ ] 100% Simplify the coordinator and publish final documentation.
 

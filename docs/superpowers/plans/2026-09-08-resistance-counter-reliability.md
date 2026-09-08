@@ -94,7 +94,7 @@ git add src/ResistanceLevel.h src/ResistanceLevel.cpp src/BikeComputer.h test/te
 git commit -m "diagnostic: measure resistance polling reliability"
 ```
 
-### Hardware Gate A: Locate the count loss — [0%]
+### Hardware Gate A: Locate the count loss — [100%]
 
 Upload and perform at least five complete minimum-to-maximum-to-minimum movements while Garmin is connected. Preserve every `RESISTANCE RUN` line.
 
@@ -106,7 +106,14 @@ Classify the result:
 
 Do not continue until one category has evidence.
 
-### Task 2: Extract and correct the pure resistance reducer — [0%]
+Evidence captured on hardware: full and short runs had a 1 ms maximum poll gap
+with 23--27 ms minimum accepted edge intervals, so polling had ample margin.
+Direction pins reported no invalid or transient stopped samples. One-step
+backward commands intentionally consisted of a backward overshoot followed by
+a short forward compensation run. USB attachment materially disturbed trainer
+behavior, so further acceptance is by normal training with USB disconnected.
+
+### Task 2: Extract and correct the pure resistance reducer — [100%]
 
 **Files:**
 - Create: `src/ResistanceModel.h`
@@ -136,29 +143,29 @@ auto reduceResistance(const ResistanceModelState& state,
     -> ResistanceModelState;
 ```
 
-- [ ] **Step 1: Write characterization tests**
+- [x] **Step 1: Write characterization tests**
 
 Cover every level minimum and maximum, every gap between ranges, the 8/50/1700 ms timing boundaries, forward/backward changes, minimum-limit reset, `millis()` rollover, and current `uint16_t` overflow behavior.
 
-- [ ] **Step 2: Write the failing direction-dropout regression**
+- [x] **Step 2: Write the failing direction-dropout regression**
 
 Apply a valid forward edge, an `Invalid` edge, then another valid forward edge at consistent intervals. Expect both forward edges to count. Repeat with `Stopped`. The current implementation must fail because it overwrites its remembered direction on invalid/stopped events.
 
-- [ ] **Step 3: Verify RED**
+- [x] **Step 3: Verify RED**
 
 ```bash
 pio test -e native -f test_resistance_model
 ```
 
-- [ ] **Step 4: Implement the reducer**
+- [x] **Step 4: Implement the reducer**
 
 Move debounce, direction hysteresis, counter changes, level lookup, gap latching, and limit reset into the pure function. Update `lastValidDirection` only for `Forward` or `Backward`; `Stopped` and `Invalid` cannot modify the counter or valid-direction history.
 
-- [ ] **Step 5: Make polling a thin adapter**
+- [x] **Step 5: Make polling a thin adapter**
 
 `ResistanceLevel::poll()` reads pins, detects the position edge, constructs one `ResistanceEvent`, applies `reduceResistance`, and updates diagnostics. Preserve the existing public `level()` and `getPositionChangeCounter()` methods.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 ```bash
 pio test -e native
@@ -180,6 +187,9 @@ Repeat five full movements with Garmin connected. Accept only if:
 - Cadence, power, BLE reconnection, sleep, and wake remain unchanged.
 
 If undercount remains and diagnostics prove long poll gaps, stop. Do not adjust thresholds or debounce values.
+
+The user elected to validate this gate during normal training with USB
+disconnected and will return if resistance behavior becomes materially worse.
 
 ### Task 3: Close the evidence loop — [0%]
 
