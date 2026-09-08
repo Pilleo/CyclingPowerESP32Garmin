@@ -267,8 +267,10 @@ void test_cadence_very_long_stop() {
     cadenceInstance->cadence();
   }
 
-  // After very long stop duration, RPM should be -1
-  TEST_ASSERT_EQUAL_FLOAT(-1.0f, cadenceInstance->cadence());
+  // After very long stop duration, cadence is explicitly sleep-ready.
+  const CadenceReading reading = cadenceInstance->reading();
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, reading.rpm);
+  TEST_ASSERT_EQUAL(CadencePhase::SleepReady, reading.phase);
 }
 
 void test_cadence_inconsistent_pulses() {

@@ -3,12 +3,12 @@
 Cadence *Cadence::_instance = nullptr;
 
 auto Cadence::getGattLastCrankRevolutionTimestamp() const -> uint16_t {
-  return (gattLastCrankRevolutionTimestamp);
+  return _state.lastCrankEventTime1024;
 }
 
-auto Cadence::totalRevs() const -> uint32_t { return totalRev; }
+auto Cadence::totalRevs() const -> uint32_t { return _state.totalCrankRevolutions; }
 
-auto Cadence::lastTimestamp() const -> uint32_t { return elapsedTimestamp; }
+auto Cadence::lastTimestamp() const -> uint32_t { return _state.lastEvaluationTimeMs; }
 
 void Cadence::enableInterrupt() {
   _instance = this;
@@ -31,36 +31,13 @@ void Cadence::handleInterrupt() {
 }
 
 Cadence::Cadence(const uint8_t pinn, ISystemWrapper &sys) noexcept
-    : sys(sys), pin(pinn), oldState(false), elapsedTimestamp(0),
-      elapsedSampleTimeStamp(0), rev(0), totalRev(0),
-      gattLastCrankRevolutionTimestamp(0) {}
+    : sys(sys), pin(pinn), oldState(false), _state{} {}
 
 void Cadence::begin() { oldState = (sys.digitalRead(pin) != 0); }
 
-namespace {
-auto calculateRpmFromRevolutions(const uint8_t revolutions,
-                                 const uint32_t revolutionsTime) -> float {
-  // 60,000 ms in a minute
-  const float instantaneousRpm =
-      60000.0F /
-      (static_cast<float>(revolutionsTime) / static_cast<float>(revolutions));
-  return instantaneousRpm;
-}
-
-constexpr float MILLISECONDS_IN_SECOND = 1000.0F;
-constexpr float GATT_TIME_UNITS_PER_SECOND = 1024.0F;
-} // namespace
-
 void Cadence::onPulse(uint32_t now) {
-  // Debounce Logic: Only count if enough time passed since last registered
-  // pulse
-  if (now - elapsedSampleTimeStamp > MIN_DELAY_BETWEEN_FULL_ROTATION_MS) {
-    rev++;
-    totalRev++;
-    elapsedSampleTimeStamp = now;
-  }
+  _state = recordCadencePulse(_state, now);
 }
-// ... onPulse ...
 
 void Cadence::poll() {
   // 1. Hardware Detection (Polling Driver)
@@ -72,47 +49,11 @@ void Cadence::poll() {
 }
 
 auto Cadence::cadence() -> float {
-  // NO HARDWARE READING HERE!
-  // Only pure logic based on volatile state.
+  return reading().rpm;
+}
 
-  const uint32_t mls = sys.millis();
-
-  // 2. Atomic Snapshot
-  sys.disableInterrupts();
-  const uint8_t snapshotRev = rev;
-  const uint32_t snapshotTimestamp = elapsedTimestamp;
-  sys.enableInterrupts();
-
-  const uint32_t intervalTime = mls - snapshotTimestamp;
-
-  if (intervalTime > MIN_DELAY_BETWEEN_FULL_ROTATION_MS) {
-    if (snapshotRev == 0) {
-      if (intervalTime > MAX_IDLE_TIMEOUT_MS) {
-        rpm = 0.0F;
-        if (intervalTime > DEEP_SLEEP_TIMEOUT_MS) {
-          rpm = -1.0F;
-        }
-        return rpm;
-      }
-      if (rpm > 0 && lastIntervalTime > 0 && intervalTime > lastIntervalTime) {
-        rpm = calculateRpmFromRevolutions(1, intervalTime);
-      }
-    } else {
-      rpm = calculateRpmFromRevolutions(snapshotRev, intervalTime);
-
-      sys.disableInterrupts();
-      rev = 0;
-      elapsedTimestamp = mls;
-      sys.enableInterrupts();
-
-      lastIntervalTime = intervalTime;
-      gattLastCrankRevolutionTimestamp =
-          (gattLastCrankRevolutionTimestamp +
-           static_cast<uint16_t>(
-               (static_cast<float>(intervalTime) / MILLISECONDS_IN_SECOND) *
-               GATT_TIME_UNITS_PER_SECOND));
-    }
-  }
-
-  return rpm;
+auto Cadence::reading() -> CadenceReading {
+  const CadenceEvaluation evaluation = evaluateCadence(_state, sys.millis());
+  _state = evaluation.nextState;
+  return evaluation.reading;
 }

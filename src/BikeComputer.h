@@ -66,9 +66,9 @@ public:
         _cadence.poll();
         _resistance.poll();
 #endif
-        const float cad = _cadence.cadence();
+        const CadenceReading cadence = _cadence.reading();
 
-        _led.update(cad);
+        _led.update(cadence.rpm);
 
         const unsigned long ms = _sys.millis();
         const uint8_t l = _resistance.level();
@@ -84,14 +84,15 @@ public:
             lastLevel = l;
         }
 
-        currentPower = Power::calculate({l, cad});
+        currentPower = Power::calculate({l, cadence.rpm});
 
         const unsigned long periodSinceLastTransaction = ms - lastDataSentTimestamp;
 
         if (periodSinceLastTransaction >= TIME_PERIOD_FOR_SENDING_DATA) {
-            if (cad >= 0.0F) {
-                _bleService.updateData(currentPower, _cadence.totalRevs(),
-                                       _cadence.getGattLastCrankRevolutionTimestamp());
+            if (cadence.phase != CadencePhase::SleepReady) {
+                _bleService.updateData({currentPower,
+                                        cadence.totalCrankRevolutions,
+                                        cadence.lastCrankEventTime1024});
                 lastDataSentTimestamp = ms;
             } else {
                 const bool cadenceState = _sys.digitalRead(_config.wakeupPin) != 0;

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include "SystemWrapper.h"
+#include "CadenceModel.h"
 // ESP32 specific attribute for ISRs to run from RAM (faster/safer)
 #ifdef ESP32
 #include "esp_attr.h"
@@ -29,6 +30,8 @@ public:
      */
     auto cadence() -> float;
 
+    auto reading() -> CadenceReading;
+
     auto lastTimestamp() const -> uint32_t;
 
     auto getGattLastCrankRevolutionTimestamp() const -> uint16_t;
@@ -51,20 +54,8 @@ public:
 private:
     ISystemWrapper &sys;
     const uint8_t pin;
-    float rpm = 0;
-
-    uint32_t lastIntervalTime = 0;
     bool oldState; // Used only by poll()
-
-    volatile uint32_t elapsedTimestamp = 0;
-    volatile uint32_t elapsedSampleTimeStamp = 0;
-    volatile uint8_t rev = 0;
-    volatile uint32_t totalRev = 0;
-    volatile uint16_t gattLastCrankRevolutionTimestamp = 0;
-
-    static constexpr uint32_t MIN_DELAY_BETWEEN_FULL_ROTATION_MS = 330;
-    static constexpr uint32_t MAX_IDLE_TIMEOUT_MS = 5000;
-    static constexpr uint32_t DEEP_SLEEP_TIMEOUT_MS = 60000 * 15;
+    CadenceModelState _state;
     // NEW: Static pointer to the active instance
     static Cadence *_instance;
 };

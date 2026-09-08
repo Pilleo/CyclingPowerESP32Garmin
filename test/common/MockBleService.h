@@ -17,10 +17,10 @@ public:
         startCalled = true;
     }
 
-    void updateData(uint16_t power, uint32_t revs, uint16_t timestamp) override {
-        lastPowerSent = power;
-        lastRevsSent = revs;
-        lastTimestampSent = timestamp;
+    void updateData(const CyclingTelemetry& telemetry) override {
+        lastPowerSent = telemetry.powerWatts;
+        lastRevsSent = telemetry.crankRevolutions;
+        lastTimestampSent = telemetry.crankEventTime1024;
         notifyCalled = true;
         callCount++;
     }

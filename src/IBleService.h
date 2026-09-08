@@ -2,6 +2,7 @@
 #define IBLESERVICE_H
 
 #include <cstdint>
+#include "CyclingTelemetry.h"
 
 class IBleService {
 public:
@@ -9,7 +10,7 @@ public:
 
     virtual void start() = 0;
 
-    virtual void updateData(uint16_t power, uint32_t revs, uint16_t timestamp) = 0;
+    virtual void updateData(const CyclingTelemetry& telemetry) = 0;
 
     virtual auto isConnected() -> bool = 0;
 };

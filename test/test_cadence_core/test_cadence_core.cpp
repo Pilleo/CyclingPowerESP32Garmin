@@ -69,9 +69,24 @@ void test_cadence_core_debounce() {
     TEST_ASSERT_EQUAL(2, cadenceCore->totalRevs());
 }
 
+void test_reading_reports_captured_pulse_timestamp_after_delayed_evaluation() {
+    cadenceCore->onPulse(1000);
+    cadenceCore->onPulse(2000);
+    mockSysCore.setMillis(3000);
+
+    const CadenceReading reading = cadenceCore->reading();
+
+    TEST_ASSERT_EQUAL_UINT32(2, reading.totalCrankRevolutions);
+    TEST_ASSERT_EQUAL_UINT16(2048, reading.lastCrankEventTime1024);
+    TEST_ASSERT_FLOAT_WITHIN(0.01F, 40.0F, reading.rpm);
+    TEST_ASSERT_EQUAL(CadencePhase::Moving, reading.phase);
+    TEST_ASSERT_EQUAL_FLOAT(reading.rpm, cadenceCore->cadence());
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_cadence_core_logic_injection);
     RUN_TEST(test_cadence_core_debounce);
+    RUN_TEST(test_reading_reports_captured_pulse_timestamp_after_delayed_evaluation);
     return UNITY_END();
 }

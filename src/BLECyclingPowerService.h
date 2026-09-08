@@ -53,7 +53,7 @@ public:
 
     void start() override;
 
-    void updateData(uint16_t power, uint32_t totalRevolutions, uint16_t crankEventTime) override;
+    void updateData(const CyclingTelemetry& telemetry) override;
 
     auto isConnected() -> bool override;
 

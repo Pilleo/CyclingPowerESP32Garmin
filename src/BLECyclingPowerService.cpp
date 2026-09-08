@@ -132,9 +132,7 @@ void BLECyclingPowerService::setupAdvertising() const
   _bleStack.setAppearance(APPEARANCE_CYCLING_SPEED_AND_CADENCE);
 }
 
-void BLECyclingPowerService::updateData(uint16_t power,
-                                        uint32_t totalRevolutions,
-                                        uint16_t crankEventTime)
+void BLECyclingPowerService::updateData(const CyclingTelemetry& telemetry)
 {
   if (!_deviceConnected)
   {
@@ -145,7 +143,8 @@ void BLECyclingPowerService::updateData(uint16_t power,
 
   // Generate and notify for the Cycling Power Service (Power + Cadence)
   size_t cppPacketSize = BlePacketGenerator::generatePacket(
-      power, totalRevolutions, crankEventTime, payload.data());
+      telemetry.powerWatts, telemetry.crankRevolutions,
+      telemetry.crankEventTime1024, payload.data());
 
   _bleStack.setCharacteristicValue(_powerMeasurementCharacteristic,
                                    payload.data(), cppPacketSize);
@@ -153,13 +152,14 @@ void BLECyclingPowerService::updateData(uint16_t power,
 
   std::array<uint8_t, CscPacketGenerator::MAX_PACKET_SIZE> cscPayload{};
   _lastBaseCscWheelRevolutions =
-      totalRevolutions * WHEEL_REVOLUTIONS_PER_CRANK_REVOLUTION;
+      telemetry.crankRevolutions * WHEEL_REVOLUTIONS_PER_CRANK_REVOLUTION;
   const uint32_t cscWheelRevolutions = static_cast<uint32_t>(
       static_cast<int64_t>(_lastBaseCscWheelRevolutions) +
       _cscWheelRevolutionOffset);
   const size_t cscPacketSize = CscPacketGenerator::generatePacketFromCounts(
-      cscWheelRevolutions, crankEventTime,
-      static_cast<uint16_t>(totalRevolutions), crankEventTime,
+      cscWheelRevolutions, telemetry.crankEventTime1024,
+      static_cast<uint16_t>(telemetry.crankRevolutions),
+      telemetry.crankEventTime1024,
       cscPayload.data());
   _bleStack.setCharacteristicValue(_cscMeasurementCharacteristic,
                                    cscPayload.data(), cscPacketSize);

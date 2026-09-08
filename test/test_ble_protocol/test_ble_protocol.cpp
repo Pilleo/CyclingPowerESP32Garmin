@@ -26,7 +26,7 @@ void test_re_advertising_on_disconnect() {
     TEST_ASSERT_TRUE(service->isConnected());
 
     // Latch the connection state (sets _oldDeviceConnected = true)
-    service->updateData(100, 60, 1000);
+    service->updateData({100, 60, 1000});
 
     // Reset advertising flag (it might be called on connect too depending on logic)
     mockStack->advertisingStarted = false;
@@ -38,7 +38,7 @@ void test_re_advertising_on_disconnect() {
     // 3. Trigger update loop
     // The logic "if (!deviceConnected && oldDeviceConnected)" runs inside updateData
     // We need to call updateData to trigger the state check.
-    service->updateData(100, 60, 1000);
+    service->updateData({100, 60, 1000});
 
     // 4. Assert Advertising Restarted
     TEST_ASSERT_TRUE(mockStack->advertisingStarted);
@@ -49,7 +49,7 @@ void test_battery_level_update() {
     mockStack->simulateConnect();
     
     // 2. Update Data
-    service->updateData(200, 90, 2000);
+    service->updateData({200, 90, 2000});
     
     // 3. Assert Battery Level Set and Notified
     // UUID for Battery Level is "2A19"
@@ -68,7 +68,7 @@ void test_power_measurement_notification() {
     uint16_t power = 250;
     uint32_t revs = 100;
     uint16_t timestamp = 5000;
-    service->updateData(power, revs, timestamp);
+    service->updateData({power, revs, timestamp});
 
     // 3. Assert Power Measurement Notified
     // UUID for Power Measurement is "2A63"
@@ -123,7 +123,7 @@ void test_advertises_speed_and_cadence_sensor_appearance() {
 
 void test_update_notifies_power_and_csc_measurements() {
     mockStack->simulateConnect();
-    service->updateData(250, 100, 5000);
+    service->updateData({250, 100, 5000});
 
     TEST_ASSERT_TRUE(mockStack->wasNotified("2A63"));
     TEST_ASSERT_TRUE(mockStack->wasNotified("2A5B"));
@@ -131,14 +131,14 @@ void test_update_notifies_power_and_csc_measurements() {
 
 void test_csc_control_point_sets_cumulative_wheel_value() {
     mockStack->simulateConnect();
-    service->updateData(250, 10, 1024);
+    service->updateData({250, 10, 1024});
     const uint8_t request[] = {0x01, 0x64, 0x00, 0x00, 0x00};
     mockStack->simulateWrite("2A55", request, sizeof(request));
     const uint8_t expectedResponse[] = {0x10, 0x01, 0x01};
     const auto response = mockStack->getValue("2A55");
     TEST_ASSERT_TRUE(mockStack->wasIndicated("2A55"));
     TEST_ASSERT_EQUAL_HEX8_ARRAY(expectedResponse, response.data(), 3);
-    service->updateData(250, 11, 2048);
+    service->updateData({250, 11, 2048});
     const auto measurement = mockStack->getValue("2A5B");
     uint32_t wheelRevs = 0;
     std::memcpy(&wheelRevs, measurement.data() + 1, sizeof(wheelRevs));
