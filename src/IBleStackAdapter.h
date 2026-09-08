@@ -20,6 +20,8 @@ public:
 
     virtual void init(const char *deviceName) = 0;
 
+    virtual auto setRandomStaticAddress(const uint8_t *address) -> bool = 0;
+
     virtual void startAdvertising() = 0;
 
     virtual void setCallbacks(Callbacks *callbacks) = 0;

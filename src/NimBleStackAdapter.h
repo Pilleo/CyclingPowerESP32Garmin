@@ -49,6 +49,11 @@ public:
         _pServer->setCallbacks(_serverCallbacks);
     }
 
+    auto setRandomStaticAddress(const uint8_t *address) -> bool override {
+        return NimBLEDevice::setOwnAddr(address) &&
+               NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_RANDOM);
+    }
+
     void startAdvertising() override {
         BLEDevice::startAdvertising();
     }

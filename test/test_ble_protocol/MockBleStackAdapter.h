@@ -2,6 +2,8 @@
 #define MOCK_BLE_STACK_ADAPTER_H
 
 #include "../../src/IBleStackAdapter.h"
+#include <array>
+#include <algorithm>
 #include <string>
 #include <map>
 #include <vector>
@@ -19,6 +21,8 @@ public:
     Callbacks* callbacks = nullptr;
     bool advertisingStarted = false;
     uint16_t appearance = 0;
+    bool randomStaticAddressConfigured = false;
+    std::array<uint8_t, 6> randomStaticAddress{};
     std::map<CharHandle, CharacteristicData> characteristics;
     std::vector<std::string> createdServices;
     std::vector<std::string> startedServices;
@@ -28,6 +32,13 @@ public:
     uintptr_t nextHandle = 1;
 
     void init(const char* deviceName) override {}
+
+    bool setRandomStaticAddress(const uint8_t* address) override {
+        std::copy_n(address, randomStaticAddress.size(),
+                    randomStaticAddress.begin());
+        randomStaticAddressConfigured = true;
+        return true;
+    }
 
     void startAdvertising() override {
         advertisingStarted = true;

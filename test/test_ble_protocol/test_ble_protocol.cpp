@@ -117,6 +117,16 @@ void test_advertises_speed_and_cadence_sensor_appearance() {
     TEST_ASSERT_EQUAL_HEX16(0x0485, mockStack->appearance);
 }
 
+void test_uses_distinct_diagnostic_ble_identity() {
+    const uint8_t expectedAddress[] = {0xC6, 0x58, 0x21,
+                                       0x47, 0xA3, 0xD2};
+
+    TEST_ASSERT_TRUE(mockStack->randomStaticAddressConfigured);
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(expectedAddress,
+                                 mockStack->randomStaticAddress.data(),
+                                 sizeof(expectedAddress));
+}
+
 void test_update_notifies_power_and_csc_measurements() {
     mockStack->simulateConnect();
     service->updateData(250, 100, 5000);
@@ -133,6 +143,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_power_feature_reports_single_sensor_with_wheel_and_crank_data);
     RUN_TEST(test_csc_service_is_discoverable_and_configured);
     RUN_TEST(test_advertises_speed_and_cadence_sensor_appearance);
+    RUN_TEST(test_uses_distinct_diagnostic_ble_identity);
     RUN_TEST(test_update_notifies_power_and_csc_measurements);
     return UNITY_END();
 }

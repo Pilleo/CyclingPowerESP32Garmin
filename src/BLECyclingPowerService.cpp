@@ -32,6 +32,8 @@ BLECyclingPowerService::BLECyclingPowerService(
 
 void BLECyclingPowerService::start() {
   _bleStack.init(BLE_DEVICE_NAME);
+  (void)_bleStack.setRandomStaticAddress(
+      BLE_DIAGNOSTIC_RANDOM_STATIC_ADDRESS);
   _bleStack.setCallbacks(this);
 
   setupPowerService();
