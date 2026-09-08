@@ -211,7 +211,7 @@ void test_power_all_levels() {
   float cadence = 90.0f;
   for (uint8_t level = 1; level <= 16; ++level) {
     uint16_t power = Power::calculate({level, cadence});
-    char msg[32];
+    char msg[64];
     snprintf(msg, sizeof(msg), "Level %d should produce >0 power", level);
     TEST_ASSERT_TRUE_MESSAGE(power > 0, msg);
 

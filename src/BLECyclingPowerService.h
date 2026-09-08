@@ -10,6 +10,7 @@
 #endif
 #include "IBleService.h"
 #include "IBleStackAdapter.h"
+#include "CpsControlPoint.h"
 
 class BLECyclingPowerService : public IBleService, public IBleStackAdapter::Callbacks,
                                public IBleStackAdapter::CharacteristicCallbacks
@@ -21,6 +22,7 @@ private:
     IBleStackAdapter::CharHandle _powerMeasurementCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _featureCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _sensorLocationCharacteristic = nullptr;
+    IBleStackAdapter::CharHandle _cpsControlPointCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _cscMeasurementCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _cscFeatureCharacteristic = nullptr;
     IBleStackAdapter::CharHandle _cscSensorLocationCharacteristic = nullptr;
@@ -29,7 +31,9 @@ private:
 
     bool _deviceConnected = false;
     uint32_t _lastBaseCscWheelRevolutions = 0;
+    uint32_t _lastBaseCpsWheelRevolutions = 0;
     int64_t _cscWheelRevolutionOffset = 0;
+    CpsControlPoint _cpsControlPoint;
 
     // Private helper methods for setup
     void setupPowerService();

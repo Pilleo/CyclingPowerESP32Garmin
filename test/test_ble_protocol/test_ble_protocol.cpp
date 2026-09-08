@@ -87,6 +87,30 @@ void test_power_feature_reports_single_sensor_with_wheel_and_crank_data() {
     TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, value.data(), sizeof(expected));
 }
 
+void test_cps_control_point_sets_cumulative_wheel_value() {
+    const auto* controlPoint = mockStack->findCharacteristic("1818", "2A66");
+    TEST_ASSERT_NOT_NULL(controlPoint);
+    TEST_ASSERT_EQUAL_UINT32(IBleStackAdapter::PROP_WRITE | IBleStackAdapter::PROP_INDICATE,
+                             controlPoint->properties);
+
+    mockStack->simulateConnect();
+    service->updateData({250, 10, 1024});
+    const uint8_t request[] = {0x01, 0x64, 0x00, 0x00, 0x00};
+    mockStack->simulateWrite("2A66", request, sizeof(request));
+    const uint8_t expectedResponse[] = {0x20, 0x01, 0x01};
+    const auto response = mockStack->getValue("2A66");
+    TEST_ASSERT_TRUE(mockStack->wasIndicated("2A66"));
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(expectedResponse, response.data(), 3);
+
+    service->updateData({250, 11, 2048});
+    const auto measurement = mockStack->getValue("2A63");
+    const uint32_t wheelRevs = static_cast<uint32_t>(measurement[4]) |
+                               (static_cast<uint32_t>(measurement[5]) << 8U) |
+                               (static_cast<uint32_t>(measurement[6]) << 16U) |
+                               (static_cast<uint32_t>(measurement[7]) << 24U);
+    TEST_ASSERT_EQUAL_UINT32(103, wheelRevs);
+}
+
 void test_csc_service_is_discoverable_and_configured() {
     TEST_ASSERT_NOT_EQUAL(
         mockStack->createdServices.end(),
@@ -151,6 +175,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_battery_level_update);
     RUN_TEST(test_power_measurement_notification);
     RUN_TEST(test_power_feature_reports_single_sensor_with_wheel_and_crank_data);
+    RUN_TEST(test_cps_control_point_sets_cumulative_wheel_value);
     RUN_TEST(test_csc_service_is_discoverable_and_configured);
     RUN_TEST(test_advertises_speed_and_cadence_sensor_appearance);
     RUN_TEST(test_update_notifies_power_and_csc_measurements);
