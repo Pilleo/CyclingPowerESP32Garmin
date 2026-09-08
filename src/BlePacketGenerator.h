@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring> // For memcpy
 #include "ble_constants.h"
+#include "config.h"
 
 // Define the flags based on ble_constants.h
 // These flags indicate which optional fields are present in the packet.
@@ -27,11 +28,11 @@ public:
     // The size of the buffer required to hold the generated packet.
     static constexpr size_t MAX_PACKET_SIZE = sizeof(CyclingPowerMeasurement);
     // This factor is used to simulate wheel revolutions from crank revolutions.
-    // The value 31 appears arbitrary but is what was used in the original implementation and is expected by the tests.
-    static constexpr uint8_t WHEEL_TO_CRANK_REVOLUTION_RATIO = 31;
+    // A ratio of 3 approximates a standard gear ratio (e.g. 50/17).
+    // At 30 RPM, this gives ~11.3 km/h on a standard wheel.
+    static constexpr uint8_t WHEEL_TO_CRANK_REVOLUTION_RATIO =
+        WHEEL_REVOLUTIONS_PER_CRANK_REVOLUTION;
     // This factor is used to convert crank event time to wheel event time, which has a different resolution.
-    static constexpr uint8_t WHEEL_TO_CRANK_TIME_RATIO = 2;
-
 
     /**
      * @brief Packs power and cadence data into a BLE packet.
@@ -51,7 +52,8 @@ public:
 
         // Simulate wheel data from crank data, as some applications require it.
         packet.cumulativeWheelRevs = totalCrankRevs * WHEEL_TO_CRANK_REVOLUTION_RATIO;
-        packet.lastWheelEventTime = lastCrankTime * WHEEL_TO_CRANK_TIME_RATIO;
+        packet.lastWheelEventTime =
+            static_cast<uint16_t>(lastCrankTime * 2U);
 
         packet.cumulativeCrankRevs = static_cast<uint16_t>(totalCrankRevs);
         packet.lastCrankEventTime = lastCrankTime;

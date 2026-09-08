@@ -48,13 +48,14 @@ void BLECyclingPowerService::setupPowerService() {
       CYCLING_POWER_SERVICE_UUID_STR, CYCLING_POWER_FEATURE_CHAR_UUID_STR,
       IBleStackAdapter::PROP_READ);
 
-  constexpr uint32_t crankRevSupported = CPF_CRANK_REVOLUTION_DATA_SUPPORTED;
-  constexpr uint32_t wheelRevSupported = CPF_WHEEL_REVOLUTION_DATA_SUPPORTED;
-  uint32_t featureVal = crankRevSupported | wheelRevSupported;
-
+  constexpr uint32_t powerFeatureVal =
+      CPF_CRANK_REVOLUTION_DATA_SUPPORTED |
+      CPF_WHEEL_REVOLUTION_DATA_SUPPORTED |
+      CPF_DISTRIBUTED_SYSTEM_NOT_SUPPORTED;
   _bleStack.setCharacteristicValue(_featureCharacteristic,
-                                   reinterpret_cast<uint8_t *>(&featureVal),
-                                   sizeof(featureVal));
+                                   reinterpret_cast<const uint8_t *>(
+                                       &powerFeatureVal),
+                                   sizeof(powerFeatureVal));
 
   _sensorLocationCharacteristic = _bleStack.createCharacteristic(
       CYCLING_POWER_SERVICE_UUID_STR, SENSOR_LOCATION_CHAR_UUID_STR,

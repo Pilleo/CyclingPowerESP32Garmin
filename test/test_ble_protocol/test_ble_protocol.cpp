@@ -77,10 +77,19 @@ void test_power_measurement_notification() {
     // We could verify packet content here if we wanted to test BlePacketGenerator integration
 }
 
+void test_power_feature_reports_single_sensor_with_wheel_and_crank_data() {
+    const std::vector<uint8_t> value = mockStack->getValue("2A65");
+    const uint8_t expected[] = {0x0C, 0x00, 0x10, 0x00};
+
+    TEST_ASSERT_EQUAL(sizeof(expected), value.size());
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(expected, value.data(), sizeof(expected));
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_re_advertising_on_disconnect);
     RUN_TEST(test_battery_level_update);
     RUN_TEST(test_power_measurement_notification);
+    RUN_TEST(test_power_feature_reports_single_sensor_with_wheel_and_crank_data);
     return UNITY_END();
 }
